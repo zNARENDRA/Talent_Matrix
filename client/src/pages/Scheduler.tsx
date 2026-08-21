@@ -257,7 +257,7 @@ export const SchedulerPage: React.FC = () => {
                     <AlertTriangle className="w-4 h-4 text-warning-500" />
                     <span>{rescheduleResult.totalAffected} interview(s) impacted</span>
                   </div>
-                  <span className="badge badge-warning text-[10px] font-mono">
+                  <span className="badge badge-warning text-xs font-mono">
                     Delay: +{rescheduleResult.delayMinutes} mins
                   </span>
                 </div>
@@ -267,7 +267,7 @@ export const SchedulerPage: React.FC = () => {
                     <div key={i} className="text-xs flex items-center justify-between p-2 rounded-lg bg-white dark:bg-surface-900 border border-surface-100 dark:border-surface-800">
                       <div>
                         <span className="font-medium text-surface-900 dark:text-white block">{r.studentName}</span>
-                        <span className="text-[11px] text-surface-400">{r.company}</span>
+                        <span className="text-xs text-surface-400">{r.company}</span>
                       </div>
                       <div className="flex items-center gap-1.5 font-mono text-xs">
                         <span className="text-danger-500 line-through">
@@ -330,7 +330,7 @@ export const SchedulerPage: React.FC = () => {
           <div className="glass-card p-6 bg-gradient-to-r from-primary-500/10 via-purple-500/10 to-transparent border border-primary-200 dark:border-primary-800">
             <div className="flex items-start justify-between">
               <div>
-                <span className="badge badge-primary text-[10px] font-mono uppercase mb-2">
+                <span className="badge badge-primary text-xs font-mono uppercase mb-2">
                   Predictive Scheduling Intelligence
                 </span>
                 <h2 className="text-lg font-bold text-surface-900 dark:text-white flex items-center gap-2">
@@ -345,7 +345,7 @@ export const SchedulerPage: React.FC = () => {
                 <div className="text-2xl font-bold font-mono text-primary-600 dark:text-primary-400">
                   {predictiveData?.highRiskPanelsCount || 0}
                 </div>
-                <div className="text-[11px] uppercase font-semibold text-surface-400">High Overrun Risk Panels</div>
+                <div className="text-xs uppercase font-semibold text-surface-400">High Overrun Risk Panels</div>
               </div>
             </div>
           </div>
@@ -370,7 +370,7 @@ export const SchedulerPage: React.FC = () => {
                     <span className="text-xs text-surface-400">{pred.location} • {pred.totalAssigned} sessions</span>
                   </div>
                   <span
-                    className={`badge text-[10px] uppercase font-mono ${
+                    className={`badge text-xs uppercase font-mono ${
                       pred.overrunRiskLevel === 'high'
                         ? 'badge-danger'
                         : pred.overrunRiskLevel === 'moderate'
@@ -408,7 +408,7 @@ export const SchedulerPage: React.FC = () => {
                   <div className="font-semibold text-surface-900 dark:text-white flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5 text-primary-500" /> Projected Delay: +{pred.projectedDelayMinutes}m
                   </div>
-                  <p className="text-[11px] leading-relaxed">{pred.proactiveRecommendation}</p>
+                  <p className="text-xs leading-relaxed">{pred.proactiveRecommendation}</p>
                 </div>
               </motion.div>
             ))}

@@ -207,7 +207,7 @@ export const StudentPortalPage: React.FC = () => {
                   className="px-2.5 py-1 rounded-lg text-xs font-medium bg-zinc-800 text-zinc-200 border border-zinc-700 flex items-center gap-1.5"
                 >
                   {skill.skillName}
-                  <span className="text-[10px] font-mono font-bold text-indigo-400">{Math.round(skill.proficiency)}%</span>
+                  <span className="text-xs font-mono font-bold text-indigo-400">{Math.round(skill.proficiency)}%</span>
                 </span>
               ))}
             </div>
@@ -252,7 +252,7 @@ export const StudentPortalPage: React.FC = () => {
                       <div className="text-lg font-bold font-mono text-emerald-400">
                         ₹{offer.packageLpa} LPA
                       </div>
-                      <span className="badge badge-primary text-[10px] uppercase font-mono">
+                      <span className="badge badge-primary text-xs uppercase font-mono">
                         {offer.tier}
                       </span>
                     </div>
@@ -262,7 +262,7 @@ export const StudentPortalPage: React.FC = () => {
                     <div className="flex items-center gap-1.5">
                       <span className="text-zinc-400">Decision Status:</span>
                       <span
-                        className={`badge font-semibold uppercase text-[10px] ${
+                        className={`badge font-semibold uppercase text-xs ${
                           offer.status === 'accepted'
                             ? 'badge-success'
                             : offer.status === 'released'
@@ -347,7 +347,7 @@ export const StudentPortalPage: React.FC = () => {
                         minute: '2-digit',
                       })}
                     </div>
-                    <span className="badge badge-info text-[10px] uppercase font-mono">{iv.status}</span>
+                    <span className="badge badge-info text-xs uppercase font-mono">{iv.status}</span>
                   </div>
                 </div>
               ))}
@@ -442,7 +442,7 @@ export const StudentPortalPage: React.FC = () => {
                       <div className="font-semibold text-xs text-white">
                         {pref.drive?.company?.name}
                       </div>
-                      <div className="text-[10px] text-zinc-400">{pref.drive?.role}</div>
+                      <div className="text-xs text-zinc-400">{pref.drive?.role}</div>
                     </div>
                   </div>
                   <span className="text-xs font-mono font-bold text-emerald-400">₹{pref.drive?.packageLpa} LPA</span>

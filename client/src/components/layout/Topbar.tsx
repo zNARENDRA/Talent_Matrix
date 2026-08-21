@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../../store/appStore';
@@ -30,10 +30,10 @@ export const Topbar: React.FC = () => {
   }, []);
 
   const severityIcon: Record<string, React.ReactNode> = {
-    critical: <ShieldAlert className="w-4 h-4 text-rose-500" />,
-    error: <AlertTriangle className="w-4 h-4 text-rose-500" />,
-    warning: <AlertTriangle className="w-4 h-4 text-amber-500" />,
-    info: <Info className="w-4 h-4 text-sky-500" />,
+    critical: <ShieldAlert className="w-5 h-5 text-rose-500" />,
+    error: <AlertTriangle className="w-5 h-5 text-rose-500" />,
+    warning: <AlertTriangle className="w-5 h-5 text-amber-500" />,
+    info: <Info className="w-5 h-5 text-sky-500" />,
   };
 
   const isStudent = role === 'student';
@@ -43,38 +43,38 @@ export const Topbar: React.FC = () => {
       {/* Search Input Trigger */}
       <button
         onClick={() => setCommandPaletteOpen(true)}
-        className="flex items-center gap-2.5 px-3.5 py-2 rounded-lg bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-medium transition-all w-72 border border-border/60 group"
+        className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground text-sm font-medium transition-all w-80 border border-border/60 group cursor-pointer"
       >
         <Search className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
         <span className="truncate">Search students, drives, algorithms...</span>
-        <kbd className="ml-auto text-[10px] bg-background border border-border px-1.5 py-0.5 rounded font-mono text-muted-foreground shadow-xs">
+        <kbd className="ml-auto text-xs bg-background border border-border px-2 py-0.5 rounded-md font-mono text-muted-foreground shadow-xs font-semibold">
           ⌘K
         </kbd>
       </button>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3.5">
         {/* Placement Season Pill */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/60 border border-border/80 text-xs font-semibold text-foreground">
-          <span className="w-2 h-2 rounded-full bg-indigo-500" />
+        <div className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl bg-muted/60 border border-border/80 text-sm font-semibold text-foreground">
+          <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
           <span>{currentSeason} Placement Season</span>
         </div>
 
         {/* Live Operational Status */}
-        <Badge variant="success" className="hidden md:inline-flex gap-1.5 px-2.5 py-1 text-[11px] font-semibold">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          Live
+        <Badge variant="success" className="hidden md:inline-flex gap-2 px-3 py-1.5 text-xs font-bold">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          Live Platform
         </Badge>
 
         {/* Notifications Dropdown */}
         <div className="relative">
           <button
             onClick={() => setShowNotifs(!showNotifs)}
-            className="relative p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            className="relative p-2.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             title="System Notifications"
           >
-            <Bell className="w-4 h-4" />
+            <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
-              <span className="absolute 1 top-1 right-1 w-4 h-4 bg-rose-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -89,13 +89,13 @@ export const Topbar: React.FC = () => {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.96 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-12 w-96 bg-card border border-border rounded-xl shadow-2xl z-50 overflow-hidden text-card-foreground"
+                  className="absolute right-0 top-14 w-96 bg-card border border-border rounded-2xl shadow-2xl z-50 overflow-hidden text-card-foreground"
                 >
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/40">
+                  <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/40">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-xs uppercase tracking-wider text-foreground">Notifications</h3>
+                      <h3 className="font-bold text-sm uppercase tracking-wider text-foreground">Notifications</h3>
                       {unreadCount > 0 && (
-                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                        <Badge variant="destructive" className="text-xs px-2 py-0.5 font-bold">
                           {unreadCount} New
                         </Badge>
                       )}
@@ -105,14 +105,14 @@ export const Topbar: React.FC = () => {
                         api.markAllRead();
                         setUnreadCount(0);
                       }}
-                      className="text-[11px] font-semibold text-primary hover:underline"
+                      className="text-xs font-bold text-primary hover:underline cursor-pointer"
                     >
                       Mark all read
                     </button>
                   </div>
                   <div className="max-h-80 overflow-y-auto divide-y divide-border">
                     {notifications.length === 0 ? (
-                      <div className="py-8 text-center text-xs text-muted-foreground">
+                      <div className="py-10 text-center text-sm text-muted-foreground">
                         No notifications to display.
                       </div>
                     ) : (
@@ -120,18 +120,18 @@ export const Topbar: React.FC = () => {
                         <div
                           key={n.id}
                           className={cn(
-                            'p-3.5 hover:bg-muted/50 transition-colors cursor-pointer',
+                            'p-4 hover:bg-muted/50 transition-colors cursor-pointer',
                             !n.isRead ? 'bg-primary/5' : ''
                           )}
                         >
-                          <div className="flex items-start gap-3">
-                            <div className="mt-0.5">{severityIcon[n.severity] || <Info className="w-4 h-4 text-primary" />}</div>
+                          <div className="flex items-start gap-3.5">
+                            <div className="mt-0.5">{severityIcon[n.severity] || <Info className="w-5 h-5 text-primary" />}</div>
                             <div className="flex-1 min-w-0">
-                              <div className="text-xs font-bold text-foreground">{n.title}</div>
-                              <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</div>
-                              <div className="text-[10px] text-muted-foreground/80 mt-1 font-mono">{new Date(n.createdAt).toLocaleTimeString()}</div>
+                              <div className="text-sm font-bold text-foreground">{n.title}</div>
+                              <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">{n.message}</div>
+                              <div className="text-xs text-muted-foreground/80 mt-1 font-mono">{new Date(n.createdAt).toLocaleTimeString()}</div>
                             </div>
-                            {!n.isRead && <div className="w-2 h-2 rounded-full bg-primary mt-1.5" />}
+                            {!n.isRead && <div className="w-2 h-2 rounded-full bg-primary mt-2" />}
                           </div>
                         </div>
                       ))
@@ -146,21 +146,21 @@ export const Topbar: React.FC = () => {
         {/* User Profile Pill */}
         <div
           onClick={() => navigate('/login')}
-          className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg bg-muted/60 border border-border/80 hover:bg-muted cursor-pointer transition-all"
+          className="flex items-center gap-3 pl-2.5 pr-3.5 py-2 rounded-xl bg-muted/60 border border-border/80 hover:bg-muted cursor-pointer transition-all"
         >
           <Avatar
-            className="w-7 h-7 font-bold text-[11px]"
+            className="w-8 h-8 font-bold text-xs"
             fallback={user?.name ? user.name.slice(0, 2).toUpperCase() : isStudent ? 'ST' : 'RK'}
           />
           <div className="hidden lg:flex flex-col text-left">
-            <span className="text-xs font-bold text-foreground leading-none">
+            <span className="text-sm font-bold text-foreground leading-none">
               {user?.name || (isStudent ? 'Aarav Sharma' : 'Dr. Rajesh Kumar')}
             </span>
-            <span className="text-[10px] text-muted-foreground font-semibold uppercase leading-tight mt-0.5">
-              {user?.role?.replace('_', ' ') || (isStudent ? 'Candidate' : 'TPO Admin')}
+            <span className="text-xs text-muted-foreground font-bold uppercase leading-tight mt-1">
+              {user?.role?.replace('_', ' ') || (isStudent ? 'Candidate' : 'TPO Super Admin')}
             </span>
           </div>
-          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+          <ChevronDown className="w-4 h-4 text-muted-foreground" />
         </div>
       </div>
     </header>

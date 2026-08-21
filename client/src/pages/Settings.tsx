@@ -127,7 +127,7 @@ export const SettingsPage: React.FC = () => {
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold text-sm text-surface-900 dark:text-white">{provider.name}</span>
                 {provider.configured && (
-                  <span className="badge badge-success text-[10px]">READY</span>
+                  <span className="badge badge-success text-xs">READY</span>
                 )}
               </div>
               <div className="text-xs font-mono text-primary-600 dark:text-primary-400 mb-1">{provider.model}</div>
@@ -172,7 +172,7 @@ export const SettingsPage: React.FC = () => {
                     {!policy.isActive && <span className="badge badge-neutral text-xs">INACTIVE</span>}
                   </div>
                   <p className="text-xs text-surface-500">{policy.description}</p>
-                  <div className="text-[11px] font-mono text-surface-400">
+                  <div className="text-xs font-mono text-surface-400">
                     Block Lower: {String(rules.blockLowerTiers ?? true)} • Allow Upgrades: {String(rules.allowUpgrade ?? true)}
                   </div>
                 </div>

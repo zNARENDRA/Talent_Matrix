@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+﻿import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAppStore } from './store/appStore';
@@ -41,12 +41,12 @@ function AppLayout() {
   const { role } = useAuthStore();
 
   return (
-    <div className="min-h-screen bg-surface-50 dark:bg-surface-950">
+    <div className="min-h-screen bg-background text-foreground">
       <Sidebar />
       <CommandPalette />
       <div
         className="transition-all duration-300"
-        style={{ marginLeft: sidebarCollapsed ? 72 : 260 }}
+        style={{ marginLeft: sidebarCollapsed ? 76 : 280 }}
       >
         <Topbar />
         <main className="min-h-[calc(100vh-4rem)]">
@@ -82,9 +82,9 @@ function AppLayout() {
               <PageWrapper>
                 <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
                   <div className="text-6xl mb-4">🔍</div>
-                  <h2 className="text-2xl font-bold text-surface-900 dark:text-white mb-2">Page Not Found</h2>
-                  <p className="text-surface-500 mb-6">The page you're looking for doesn't exist or has been moved.</p>
-                  <a href="/" className="btn-primary">Go to Dashboard</a>
+                  <h2 className="text-2xl font-bold text-foreground mb-2">Page Not Found</h2>
+                  <p className="text-muted-foreground mb-6">The page you're looking for doesn't exist or has been moved.</p>
+                  <a href="/" className="px-4 py-2 rounded-lg bg-primary text-primary-foreground font-semibold">Go to Dashboard</a>
                 </div>
               </PageWrapper>
             } />
@@ -99,7 +99,11 @@ function App() {
   const { theme } = useAppStore();
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }, [theme]);
 
   return (

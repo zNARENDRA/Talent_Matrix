@@ -143,7 +143,7 @@ export const YearlyReports: React.FC = () => {
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${
+                      className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
                         y.status === 'ACTIVE'
                           ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                           : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
@@ -180,7 +180,7 @@ export const YearlyReports: React.FC = () => {
                   <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${report.color} flex items-center justify-center shadow-lg`}>
                     <Icon className="w-5 h-5 text-white" />
                   </div>
-                  <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                  <span className="px-2 py-0.5 text-xs font-mono rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
                     RFC-4180 CSV
                   </span>
                 </div>
@@ -194,7 +194,7 @@ export const YearlyReports: React.FC = () => {
 
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {report.tags.map((t) => (
-                    <span key={t} className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800/80 text-zinc-400 border border-zinc-700/60">
+                    <span key={t} className="px-2 py-0.5 rounded text-xs font-medium bg-zinc-800/80 text-zinc-400 border border-zinc-700/60">
                       {t}
                     </span>
                   ))}

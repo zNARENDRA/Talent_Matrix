@@ -145,7 +145,7 @@ export const DrivesPage: React.FC = () => {
                         </div>
                         <h3 className="font-bold text-base mt-1 text-foreground">{drive.role}</h3>
                       </div>
-                      <Badge variant={statusVariantMap[drive.status] || 'outline'} className="capitalize text-[10px]">
+                      <Badge variant={statusVariantMap[drive.status] || 'outline'} className="capitalize text-xs">
                         {drive.status.replace('_', ' ')}
                       </Badge>
                     </div>
@@ -156,7 +156,7 @@ export const DrivesPage: React.FC = () => {
                       </span>
                       <Badge
                         variant={tierBadgeVariant[drive.offerTier] || 'default'}
-                        className="text-[10px] uppercase font-mono"
+                        className="text-xs uppercase font-mono"
                       >
                         {drive.offerTier.replace('_', ' ')}
                       </Badge>
@@ -181,7 +181,7 @@ export const DrivesPage: React.FC = () => {
                   <div className="px-5 py-3 border-t border-border bg-muted/20 flex items-center justify-between">
                     <div className="flex flex-wrap gap-1">
                       {JSON.parse(drive.eligibleDepts || '[]').slice(0, 3).map((dept: string) => (
-                        <Badge key={dept} variant="outline" className="text-[9px] px-1.5 py-0 font-mono">
+                        <Badge key={dept} variant="outline" className="text-xs px-1.5 py-0 font-mono">
                           {dept}
                         </Badge>
                       ))}
@@ -240,7 +240,7 @@ export const DrivesPage: React.FC = () => {
                     <h3 className="text-xs font-bold text-foreground uppercase tracking-tight">
                       {col.title}
                     </h3>
-                    <Badge variant="secondary" className="text-[10px] font-mono font-bold px-1.5 py-0">
+                    <Badge variant="secondary" className="text-xs font-mono font-bold px-1.5 py-0">
                       {col.candidates?.length || 0}
                     </Badge>
                   </div>
@@ -260,20 +260,20 @@ export const DrivesPage: React.FC = () => {
                           <div className="flex items-start justify-between">
                             <div>
                               <div className="font-bold text-xs text-foreground">{c.name}</div>
-                              <div className="text-[10px] text-muted-foreground font-mono">{c.studentId} • {c.department}</div>
+                              <div className="text-xs text-muted-foreground font-mono">{c.studentId} • {c.department}</div>
                             </div>
-                            <Badge variant="brand" className="text-[10px] px-1 py-0 font-mono font-bold">
+                            <Badge variant="brand" className="text-xs px-1 py-0 font-mono font-bold">
                               GPA {c.gpa}
                             </Badge>
                           </div>
 
-                          <div className="text-[11px] text-foreground font-medium truncate">
+                          <div className="text-xs text-foreground font-medium truncate">
                             {c.company}
                           </div>
 
                           {/* Authenticity Badge if assessment taken */}
                           {c.authenticityScore !== null && (
-                            <div className="flex items-center justify-between pt-1 border-t border-border text-[10px]">
+                            <div className="flex items-center justify-between pt-1 border-t border-border text-xs">
                               <span className="text-muted-foreground flex items-center gap-1">
                                 <ShieldCheck className="w-3 h-3 text-emerald-500" /> Auth Score:
                               </span>
@@ -298,7 +298,7 @@ export const DrivesPage: React.FC = () => {
                               size="sm"
                               onClick={() => handleAdvance(c.applicationId, nextStage.nextStatus, nextStage.nextRound)}
                               disabled={advancingId === c.applicationId}
-                              className="w-full text-[10px] py-1 h-7 flex items-center justify-center gap-1 font-semibold hover:bg-primary hover:text-primary-foreground transition-all"
+                              className="w-full text-xs py-1 h-7 flex items-center justify-center gap-1 font-semibold hover:bg-primary hover:text-primary-foreground transition-all"
                             >
                               {advancingId === c.applicationId ? (
                                 'Advancing...'

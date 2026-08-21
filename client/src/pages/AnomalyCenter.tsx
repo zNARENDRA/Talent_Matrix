@@ -119,44 +119,44 @@ export const AnomalyCenterPage: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-4 flex items-center justify-between">
           <div>
-            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Total Alerts</div>
+            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Total Alerts</div>
             <div className="text-3xl font-extrabold font-mono text-foreground mt-0.5">
               {stats?.totalAlerts || 0}
             </div>
-            <div className="text-[11px] text-muted-foreground font-medium">Logged Violations</div>
+            <div className="text-xs text-muted-foreground font-medium">Logged Violations</div>
           </div>
           <ShieldAlert className="w-8 h-8 text-rose-500/30" />
         </Card>
 
         <Card className="p-4 flex items-center justify-between">
           <div>
-            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">High / Critical</div>
+            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">High / Critical</div>
             <div className="text-3xl font-extrabold font-mono text-rose-500 mt-0.5">
               {stats?.criticalAlerts || 0}
             </div>
-            <div className="text-[11px] text-muted-foreground font-medium">Immediate Attention</div>
+            <div className="text-xs text-muted-foreground font-medium">Immediate Attention</div>
           </div>
           <AlertTriangle className="w-8 h-8 text-rose-500/30" />
         </Card>
 
         <Card className="p-4 flex items-center justify-between">
           <div>
-            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Avg Authenticity</div>
+            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Avg Authenticity</div>
             <div className="text-3xl font-extrabold font-mono text-emerald-500 mt-0.5">
               {stats?.avgAuthenticityScore ? `${Math.round(stats.avgAuthenticityScore)}%` : '94%'}
             </div>
-            <div className="text-[11px] text-muted-foreground font-medium">Across Cohort</div>
+            <div className="text-xs text-muted-foreground font-medium">Across Cohort</div>
           </div>
           <Sparkles className="w-8 h-8 text-emerald-500/30" />
         </Card>
 
         <Card className="p-4 flex items-center justify-between">
           <div>
-            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Active Model</div>
+            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Active Model</div>
             <div className="text-sm font-bold text-foreground mt-1 truncate">
               {aiStatus?.model || 'Gemini 1.5 Pro'}
             </div>
-            <div className="text-[11px] text-muted-foreground font-medium">Behavioral Telemetry</div>
+            <div className="text-xs text-muted-foreground font-medium">Behavioral Telemetry</div>
           </div>
           <Bot className="w-8 h-8 text-indigo-500/30" />
         </Card>
@@ -207,7 +207,7 @@ export const AnomalyCenterPage: React.FC = () => {
                               ? 'warning'
                               : 'info'
                           }
-                          className="text-[10px] uppercase font-mono font-bold"
+                          className="text-xs uppercase font-mono font-bold"
                         >
                           {alert.severity}
                         </Badge>
@@ -216,7 +216,7 @@ export const AnomalyCenterPage: React.FC = () => {
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="font-bold text-sm text-foreground">{alert.description}</h4>
-                          <Badge variant="outline" className="text-[10px] font-mono">
+                          <Badge variant="outline" className="text-xs font-mono">
                             Risk +{alert.score}
                           </Badge>
                         </div>
@@ -237,7 +237,7 @@ export const AnomalyCenterPage: React.FC = () => {
                             <Badge
                               key={idx}
                               variant="secondary"
-                              className="text-[10px] font-mono gap-1"
+                              className="text-xs font-mono gap-1"
                             >
                               {signalIcons[sig] || <AlertTriangle className="w-3 h-3 text-amber-500" />}
                               {sig.replace(/_/g, ' ')}

@@ -158,14 +158,14 @@ export const SelectionStudio: React.FC = () => {
         return (
           <div className="flex flex-col items-start gap-0.5">
             <Badge variant="destructive">Deselected</Badge>
-            {reason && <span className="text-[10px] text-muted-foreground">{reason.replace(/_/g, ' ')}</span>}
+            {reason && <span className="text-xs text-muted-foreground">{reason.replace(/_/g, ' ')}</span>}
           </div>
         );
       case 'INELIGIBLE':
         return (
           <div className="flex flex-col items-start gap-0.5">
             <Badge variant="warning">Ineligible</Badge>
-            {reason && <span className="text-[10px] text-amber-500">{reason}</span>}
+            {reason && <span className="text-xs text-amber-500">{reason}</span>}
           </div>
         );
       default:
@@ -328,11 +328,11 @@ export const SelectionStudio: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <div className="font-bold text-foreground">{c.studentName}</div>
-                          <div className="text-[10px] text-muted-foreground font-mono">{c.studentId}</div>
+                          <div className="text-xs text-muted-foreground font-mono">{c.studentId}</div>
                         </TableCell>
                         <TableCell>
                           <div className="text-xs text-foreground font-medium">{c.department}</div>
-                          <div className="text-[11px] font-bold text-indigo-500 font-mono">{c.gpa.toFixed(2)} GPA</div>
+                          <div className="text-xs font-bold text-indigo-500 font-mono">{c.gpa.toFixed(2)} GPA</div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -358,7 +358,7 @@ export const SelectionStudio: React.FC = () => {
                                 setScoringCandidate(c);
                                 setEvalScore(c.recruiterScore || 80);
                               }}
-                              className="h-auto p-0 text-[11px] font-semibold text-primary ml-1"
+                              className="h-auto p-0 text-xs font-semibold text-primary ml-1"
                             >
                               Edit
                             </Button>
@@ -443,17 +443,17 @@ export const SelectionStudio: React.FC = () => {
                       />
                       <div>
                         <span className="font-bold text-foreground">{log.student?.name || log.studentId}</span>
-                        <span className="text-[11px] text-muted-foreground ml-2 font-mono">({log.student?.studentId || log.studentId})</span>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                        <span className="text-xs text-muted-foreground ml-2 font-mono">({log.student?.studentId || log.studentId})</span>
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           {log.drive?.company?.name} — {log.drive?.role} | Decision: <strong className="text-foreground font-semibold">{log.decision}</strong> ({log.reason || 'None'})
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <Badge variant="secondary" className="font-mono text-[10px]">
+                      <Badge variant="secondary" className="font-mono text-xs">
                         {log.source || 'SYSTEM'}
                       </Badge>
-                      <p className="text-[10px] text-muted-foreground mt-1 font-mono">{new Date(log.createdAt).toLocaleTimeString()}</p>
+                      <p className="text-xs text-muted-foreground mt-1 font-mono">{new Date(log.createdAt).toLocaleTimeString()}</p>
                     </div>
                   </div>
                 ))

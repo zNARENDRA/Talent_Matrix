@@ -60,7 +60,7 @@ const KPICard: React.FC<{
           {trend !== undefined && (
             <Badge
               variant={trend >= 0 ? 'success' : 'destructive'}
-              className="text-[10px] px-1.5 py-0 font-mono font-bold flex items-center gap-0.5"
+              className="text-xs px-1.5 py-0 font-mono font-bold flex items-center gap-0.5"
             >
               {trend >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
               {Math.abs(trend)}%
@@ -69,7 +69,7 @@ const KPICard: React.FC<{
         </div>
 
         {onClick && (
-          <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="mt-2 flex items-center gap-1 text-xs font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
             Explore module <ArrowRight className="w-3 h-3" />
           </div>
         )}
@@ -140,7 +140,7 @@ const ActivityFeed: React.FC<{ activities: any[] }> = ({ activities }) => {
             <div className="text-xs font-semibold text-foreground line-clamp-2 leading-relaxed">
               {log.description}
             </div>
-            <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+            <div className="text-xs text-muted-foreground mt-0.5 font-mono">
               {new Date(log.createdAt).toLocaleTimeString()} • {log.action.replace('_', ' ')}
             </div>
           </div>
@@ -393,7 +393,7 @@ export const Dashboard: React.FC = () => {
             )}
             <div className="flex flex-wrap gap-1.5 mt-2">
               {placement?.packageDistribution?.filter((p: any) => p.count > 0).map((p: any, i: number) => (
-                <Badge key={p.range} variant="outline" className="text-[11px] gap-1.5 font-medium">
+                <Badge key={p.range} variant="outline" className="text-xs gap-1.5 font-medium">
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
                   {p.range}: <strong className="text-foreground">{p.count}</strong>
                 </Badge>
@@ -415,7 +415,7 @@ export const Dashboard: React.FC = () => {
                 className="flex items-center justify-between py-1.5 border-b border-border/60 last:border-0 text-xs"
               >
                 <div className="flex items-center gap-2.5">
-                  <span className="w-5 h-5 rounded-md bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                  <span className="w-5 h-5 rounded-md bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground">
                     #{i + 1}
                   </span>
                   <span className="font-semibold text-foreground">{c.company}</span>

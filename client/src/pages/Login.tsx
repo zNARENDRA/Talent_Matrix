@@ -244,9 +244,9 @@ export const LoginPage: React.FC = () => {
                 <span className="font-semibold text-xs text-surface-900 dark:text-white flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5 text-primary-600" /> Dr. Rajesh Kumar
                 </span>
-                <span className="badge badge-primary text-[10px]">T&P ADMIN</span>
+                <span className="badge badge-primary text-xs">T&P ADMIN</span>
               </div>
-              <p className="text-[11px] text-surface-500">Full access: Allocation, Scheduler, Policies, Anomaly Center</p>
+              <p className="text-xs text-surface-500">Full access: Allocation, Scheduler, Policies, Anomaly Center</p>
             </div>
 
             {/* Persona 2: Coordinator */}
@@ -258,9 +258,9 @@ export const LoginPage: React.FC = () => {
                 <span className="font-semibold text-xs text-surface-900 dark:text-white flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5 text-purple-600" /> Prof. Anita Sharma
                 </span>
-                <span className="badge badge-warning text-[10px]">COORDINATOR</span>
+                <span className="badge badge-warning text-xs">COORDINATOR</span>
               </div>
-              <p className="text-[11px] text-surface-500">Drive management, interview panels & scheduling logs</p>
+              <p className="text-xs text-surface-500">Drive management, interview panels & scheduling logs</p>
             </div>
 
             {/* Persona 3: Student 1 */}
@@ -272,9 +272,9 @@ export const LoginPage: React.FC = () => {
                 <span className="font-semibold text-xs text-surface-900 dark:text-white flex items-center gap-1.5 truncate">
                   <GraduationCap className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" /> {s1.name} ({s1.studentId})
                 </span>
-                <span className="badge badge-success text-[10px] flex-shrink-0">STUDENT</span>
+                <span className="badge badge-success text-xs flex-shrink-0">STUDENT</span>
               </div>
-              <p className="text-[11px] text-surface-500">{s1.department} Department • GPA {s1.gpa} • Applications & Offers</p>
+              <p className="text-xs text-surface-500">{s1.department} Department • GPA {s1.gpa} • Applications & Offers</p>
             </div>
 
             {/* Persona 4: Student 2 */}
@@ -286,13 +286,13 @@ export const LoginPage: React.FC = () => {
                 <span className="font-semibold text-xs text-surface-900 dark:text-white flex items-center gap-1.5 truncate">
                   <GraduationCap className="w-3.5 h-3.5 text-cyan-600 flex-shrink-0" /> {s2.name} ({s2.studentId})
                 </span>
-                <span className="badge badge-info text-[10px] flex-shrink-0">STUDENT</span>
+                <span className="badge badge-info text-xs flex-shrink-0">STUDENT</span>
               </div>
-              <p className="text-[11px] text-surface-500">{s2.department} Department • GPA {s2.gpa} • Placement Offers</p>
+              <p className="text-xs text-surface-500">{s2.department} Department • GPA {s2.gpa} • Placement Offers</p>
             </div>
           </div>
 
-          <div className="text-[11px] text-surface-400 text-center pt-2 border-t border-surface-200 dark:border-surface-800">
+          <div className="text-xs text-surface-400 text-center pt-2 border-t border-surface-200 dark:border-surface-800">
             Clicking any persona will instantly log in and take you to that user's view.
           </div>
         </motion.div>

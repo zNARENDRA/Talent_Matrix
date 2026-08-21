@@ -388,29 +388,29 @@ export const CandidateAssessment: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-4 flex items-center justify-between">
           <div>
-            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Candidate Session</div>
+            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Candidate Session</div>
             <div className="text-sm font-bold text-foreground mt-0.5">
               {currentSession?.student?.name || 'Aarav Sharma'}
             </div>
-            <div className="text-[11px] text-muted-foreground font-mono">{currentSession?.student?.studentId || 'STU1001'}</div>
+            <div className="text-xs text-muted-foreground font-mono">{currentSession?.student?.studentId || 'STU1001'}</div>
           </div>
           <ShieldCheck className="w-8 h-8 text-primary/30" />
         </Card>
 
         <Card className="p-4 flex items-center justify-between">
           <div>
-            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Authenticity Score</div>
+            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Authenticity Score</div>
             <div className="text-2xl font-extrabold font-mono text-emerald-500 mt-0.5">
               {currentSession?.authenticityScore ?? 100}%
             </div>
-            <div className="text-[11px] text-muted-foreground font-medium">Continuous Evaluation</div>
+            <div className="text-xs text-muted-foreground font-medium">Continuous Evaluation</div>
           </div>
           <Sparkles className="w-8 h-8 text-emerald-500/30" />
         </Card>
 
         <Card className="p-4 flex items-center justify-between">
           <div>
-            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Integrity Risk Level</div>
+            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Integrity Risk Level</div>
             <div className="mt-1">
               <Badge
                 variant={
@@ -425,7 +425,7 @@ export const CandidateAssessment: React.FC = () => {
                 {currentSession?.riskLevel || 'normal'}
               </Badge>
             </div>
-            <div className="text-[11px] text-muted-foreground font-medium mt-0.5">Heuristic Detector</div>
+            <div className="text-xs text-muted-foreground font-medium mt-0.5">Heuristic Detector</div>
           </div>
           <ShieldAlert className="w-8 h-8 text-indigo-500/30" />
         </Card>
@@ -433,7 +433,7 @@ export const CandidateAssessment: React.FC = () => {
         {/* Live Webcam Proctoring Status */}
         <Card className="p-4 flex items-center justify-between">
           <div>
-            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Webcam Proctor</div>
+            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Webcam Proctor</div>
             <div className="text-sm font-bold text-foreground mt-1 flex items-center gap-1.5">
               {!modelReady ? (
                 <span className="flex items-center gap-1 text-xs font-semibold text-sky-500">
@@ -472,7 +472,7 @@ export const CandidateAssessment: React.FC = () => {
                 </span>
               )}
             </div>
-            <div className="text-[11px] text-muted-foreground font-medium">{modelReady ? 'MediaPipe BlazeFace' : 'Initializing...'}</div>
+            <div className="text-xs text-muted-foreground font-medium">{modelReady ? 'MediaPipe BlazeFace' : 'Initializing...'}</div>
           </div>
           <Camera className="w-8 h-8 text-sky-500/30" />
         </Card>
@@ -527,7 +527,7 @@ export const CandidateAssessment: React.FC = () => {
 
           {/* Test Runner Terminal Output */}
           <Card className="p-4 bg-background font-mono text-xs border border-border space-y-2">
-            <div className="flex items-center justify-between text-muted-foreground text-[11px] pb-1 border-b border-border">
+            <div className="flex items-center justify-between text-muted-foreground text-xs pb-1 border-b border-border">
               <span className="font-bold">Test Runner Output</span>
               <span>Node.js / TypeScript v5</span>
             </div>
@@ -592,7 +592,7 @@ export const CandidateAssessment: React.FC = () => {
                         : 'border-amber-500'
                     )}
                   >
-                    <div className="flex items-center justify-between text-[10px] font-mono text-emerald-400 bg-black/80 px-1.5 py-0.5 rounded backdrop-blur-sm">
+                    <div className="flex items-center justify-between text-xs font-mono text-emerald-400 bg-black/80 px-1.5 py-0.5 rounded backdrop-blur-sm">
                       <span className="flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                         REC • 30FPS
@@ -638,7 +638,7 @@ export const CandidateAssessment: React.FC = () => {
                     )}
 
                     {cameraStatus === 'face_locked' && (
-                      <div className="flex items-center justify-between text-[9px] font-mono text-emerald-400 bg-black/80 px-1.5 py-0.5 rounded backdrop-blur-sm">
+                      <div className="flex items-center justify-between text-xs font-mono text-emerald-400 bg-black/80 px-1.5 py-0.5 rounded backdrop-blur-sm">
                         <span className="flex items-center gap-1 font-semibold">
                           <CheckCircle2 className="w-3 h-3" /> Candidate Verified
                         </span>
@@ -681,13 +681,13 @@ export const CandidateAssessment: React.FC = () => {
                   disabled={!cameraActive}
                   variant="outline"
                   size="sm"
-                  className="text-[10px] text-amber-500 hover:text-amber-400"
+                  className="text-xs text-amber-500 hover:text-amber-400"
                   title="Simulate 5s violation alert"
                 >
                   Demo Alert
                 </Button>
               </div>
-              <p className="text-[10px] text-muted-foreground text-center">
+              <p className="text-xs text-muted-foreground text-center">
                 Automated ML proctoring runs in-browser via WebGL.
               </p>
             </div>
@@ -700,7 +700,7 @@ export const CandidateAssessment: React.FC = () => {
                 <Clock className="w-4 h-4 text-primary" />
                 Live Integrity Stream
               </h3>
-              <Badge variant="outline" className="text-[10px] font-mono">
+              <Badge variant="outline" className="text-xs font-mono">
                 {telemetryLogs.length} events
               </Badge>
             </div>
@@ -725,13 +725,13 @@ export const CandidateAssessment: React.FC = () => {
                             ? 'destructive'
                             : 'brand'
                         }
-                        className="font-mono text-[9px] uppercase px-1.5 py-0"
+                        className="font-mono text-xs uppercase px-1.5 py-0"
                       >
                         {log.type}
                       </Badge>
                       <span className="text-foreground truncate">{log.details}</span>
                     </div>
-                    <span className="text-[10px] font-mono text-muted-foreground flex-shrink-0">{log.time}</span>
+                    <span className="text-xs font-mono text-muted-foreground flex-shrink-0">{log.time}</span>
                   </div>
                 ))
               )}

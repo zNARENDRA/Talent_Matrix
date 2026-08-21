@@ -112,7 +112,7 @@ export const CommandPalette: React.FC = () => {
                 placeholder="Type a command or search modules..."
                 className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
               />
-              <kbd className="text-[10px] font-mono bg-muted border border-border px-1.5 py-0.5 rounded text-muted-foreground">
+              <kbd className="text-xs font-mono bg-muted border border-border px-1.5 py-0.5 rounded text-muted-foreground">
                 ESC
               </kbd>
             </div>
@@ -154,14 +154,14 @@ export const CommandPalette: React.FC = () => {
                           {action.badge && (
                             <Badge
                               variant={isSelected ? 'secondary' : 'outline'}
-                              className="text-[9px] px-1.5 py-0"
+                              className="text-xs px-1.5 py-0"
                             >
                               {action.badge}
                             </Badge>
                           )}
                           <span
                             className={cn(
-                              'text-[10px] uppercase font-semibold',
+                              'text-xs uppercase font-semibold',
                               isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'
                             )}
                           >
@@ -176,7 +176,7 @@ export const CommandPalette: React.FC = () => {
             </div>
 
             {/* Footer Tip */}
-            <div className="px-4 py-2 border-t border-border bg-muted/30 flex items-center justify-between text-[11px] text-muted-foreground">
+            <div className="px-4 py-2 border-t border-border bg-muted/30 flex items-center justify-between text-xs text-muted-foreground">
               <span>Use <kbd className="font-mono bg-background border px-1 rounded">↑</kbd> <kbd className="font-mono bg-background border px-1 rounded">↓</kbd> to navigate</span>
               <span>Press <kbd className="font-mono bg-background border px-1 rounded">↵</kbd> to select</span>
             </div>

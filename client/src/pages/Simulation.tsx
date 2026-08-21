@@ -127,7 +127,7 @@ export const Simulation: React.FC = () => {
                 </span>
                 {getDeltaBadge(simulationResult.deltas.placementRateDelta, true)}
               </div>
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-xs text-zinc-500">
                 Baseline: {simulationResult.baseline.metrics.placementRate}%
               </p>
             </div>
@@ -143,7 +143,7 @@ export const Simulation: React.FC = () => {
                   simulationResult.simulated.metrics.allocatedCount - simulationResult.baseline.metrics.allocatedCount
                 )}
               </div>
-              <div className="flex items-center gap-3 text-[11px]">
+              <div className="flex items-center gap-3 text-xs">
                 <span className="text-emerald-400 font-semibold">+{simulationResult.deltas.newlyPlacedCount} newly placed</span>
                 <span className="text-rose-400 font-semibold">-{simulationResult.deltas.lostPlacementCount} lost</span>
               </div>
@@ -158,7 +158,7 @@ export const Simulation: React.FC = () => {
                 </span>
                 {getDeltaBadge(simulationResult.deltas.cascadeCountDelta)}
               </div>
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-xs text-zinc-500">
                 Upgraded offers: <strong className="text-indigo-400">+{simulationResult.deltas.upgradedCount}</strong>
               </p>
             </div>
@@ -172,7 +172,7 @@ export const Simulation: React.FC = () => {
                 </span>
                 {getDeltaBadge(simulationResult.deltas.quotaUtilizationDelta, true)}
               </div>
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-xs text-zinc-500">
                 Total Quota: {simulationResult.simulated.metrics.totalQuota} seats
               </p>
             </div>
@@ -281,7 +281,7 @@ export const Simulation: React.FC = () => {
                     <h4 className="font-semibold text-white text-sm">{drive.company?.name || drive.companyName}</h4>
                     <p className="text-xs text-zinc-400">{drive.role} • {drive.packageLpa} LPA</p>
                   </div>
-                  <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+                  <span className="px-2 py-0.5 text-xs font-mono rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
                     {drive.offerTier}
                   </span>
                 </div>

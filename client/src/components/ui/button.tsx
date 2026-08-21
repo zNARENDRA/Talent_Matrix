@@ -23,11 +23,11 @@ export const buttonVariants = cva(
           'bg-emerald-600 text-white shadow-md hover:bg-emerald-700 shadow-emerald-500/20 active:scale-[0.98]',
       },
       size: {
-        default: 'h-9 px-4 py-2',
-        sm: 'h-8 rounded-md px-3 text-xs',
-        lg: 'h-10 rounded-lg px-6 font-semibold',
+        default: 'h-10 px-4 py-2 text-sm',
+        sm: 'h-9 rounded-md px-3 text-sm',
+        lg: 'h-11 rounded-lg px-6 text-base font-semibold',
         icon: 'h-9 w-9',
-        iconSm: 'h-7 w-7 rounded-md',
+        iconSm: 'h-8 w-8 rounded-md',
       },
     },
     defaultVariants: {

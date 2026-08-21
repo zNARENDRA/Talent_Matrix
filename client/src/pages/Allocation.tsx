@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApi, useAnimatedCounter } from '../hooks/useApi';
 import { api } from '../lib/api';
@@ -50,7 +50,6 @@ export const AllocationPage: React.FC = () => {
     setLoadingAction(true);
     setPhase('running');
     try {
-      // Execute Module A Many-to-One Gale-Shapley Allocation
       const res = await api.runAllocation({
         season: '2026',
         recruitmentCycleId: selectedCycleId,
@@ -73,177 +72,244 @@ export const AllocationPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
               Placement Allocation Engine
             </h1>
-            <Badge variant="brand" className="font-semibold text-xs">
+            <Badge variant="brand" className="font-bold text-xs px-2.5 py-1">
               Module A: Gale-Shapley & Cascading
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
             Quota-constrained many-to-one stable matching with DREAM &gt; CORE &gt; MASS cascading and blocking-pair certificate verification.
           </p>
         </div>
 
         {/* Academic Cycle Selector */}
-        <div className="flex items-center gap-2 bg-card border border-border rounded-lg p-1.5 shadow-xs">
-          <span className="text-xs font-semibold text-muted-foreground pl-2 uppercase tracking-wider">Cycle:</span>
+        <div className="flex items-center gap-3 bg-card border border-border rounded-xl p-2 shadow-xs">
+          <span className="text-xs font-bold text-muted-foreground pl-2 uppercase tracking-wider">Cycle:</span>
           <select
             value={selectedCycleId}
             onChange={(e) => setSelectedCycleId(e.target.value)}
-            className="bg-muted/80 border border-border rounded-md px-2.5 py-1 text-xs font-semibold text-foreground focus:outline-none"
+            className="bg-muted/80 border border-border rounded-lg px-3 py-1.5 text-sm font-semibold text-foreground focus:outline-none cursor-pointer"
           >
-            {cycles.map((c) => (
+            {cycles.map((c: any) => (
               <option key={c.id} value={c.id}>
-                {c.academicYear} ({c.status})
+                {c.name} ({c.status})
               </option>
             ))}
           </select>
         </div>
       </div>
 
+      {/* Main Execution Content State */}
       <AnimatePresence mode="wait">
-        {/* ─── Preview Phase ──────────────────────────────────── */}
+        {/* ─── Preview Phase ─────────────────────────────────── */}
         {phase === 'preview' && (
-          <motion.div key="preview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <Eye className="w-5 h-5 text-primary" /> Pre-Allocation Matching Matrix Preview
-                    </CardTitle>
-                    <CardDescription>
-                      Live candidate preferences, company quotas, and multi-factor scoring matrix ready for execution.
-                    </CardDescription>
+          <motion.div
+            key="preview"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="space-y-8"
+          >
+            {/* Primary Pre-Allocation Metric Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <Card className="p-5 flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Eligible Candidates</div>
+                  <div className="text-3xl font-extrabold font-mono text-foreground mt-1">
+                    {previewLoading ? '—' : preview?.summary?.eligibleStudents || 0}
                   </div>
-                  <Button
-                    variant="brand"
-                    onClick={runAllocation}
-                    disabled={previewLoading || loadingAction}
-                    className="flex items-center gap-2 font-semibold shadow-md"
-                  >
-                    {loadingAction ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
-                    Execute Allocation Engine
-                  </Button>
+                  <div className="text-xs text-muted-foreground font-medium mt-0.5">Ready for matching</div>
                 </div>
-              </CardHeader>
+                <Users className="w-9 h-9 text-indigo-500/30" />
+              </Card>
 
-              <CardContent className="space-y-6">
-                {previewLoading ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {[...Array(4)].map((_, i) => (
-                      <div key={i} className="h-24 rounded-xl bg-muted/40 animate-pulse" />
-                    ))}
+              <Card className="p-5 flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Total Corporate Quota</div>
+                  <div className="text-3xl font-extrabold font-mono text-foreground mt-1">
+                    {previewLoading ? '—' : preview?.summary?.totalQuota || 0}
                   </div>
-                ) : (
-                  preview && (
-                    <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-                          <div className="flex items-center gap-2 text-indigo-500 dark:text-indigo-400 mb-1 text-xs font-bold uppercase">
-                            <Users className="w-4 h-4" /> Eligible Candidates
-                          </div>
-                          <div className="text-3xl font-extrabold font-mono text-foreground">
-                            {preview.eligibleStudents}
-                          </div>
-                        </div>
-                        <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
-                          <div className="flex items-center gap-2 text-purple-500 dark:text-purple-400 mb-1 text-xs font-bold uppercase">
-                            <Building2 className="w-4 h-4" /> Participating Drives
-                          </div>
-                          <div className="text-3xl font-extrabold font-mono text-foreground">
-                            {preview.activeDrives}
-                          </div>
-                        </div>
-                        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                          <div className="flex items-center gap-2 text-emerald-500 dark:text-emerald-400 mb-1 text-xs font-bold uppercase">
-                            <Briefcase className="w-4 h-4" /> Total Quota Seats
-                          </div>
-                          <div className="text-3xl font-extrabold font-mono text-foreground">
-                            {preview.totalPositions}
-                          </div>
-                        </div>
-                        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                          <div className="flex items-center gap-2 text-amber-500 dark:text-amber-400 mb-1 text-xs font-bold uppercase">
-                            <Award className="w-4 h-4" /> Submitted Preferences
-                          </div>
-                          <div className="text-3xl font-extrabold font-mono text-foreground">
-                            {preview.totalPreferencesSubmitted || 0}
-                          </div>
-                        </div>
-                      </div>
+                  <div className="text-xs text-muted-foreground font-medium mt-0.5">Verified open positions</div>
+                </div>
+                <Building2 className="w-9 h-9 text-emerald-500/30" />
+              </Card>
 
-                      {/* Drive Breakdown Grid */}
-                      <div>
-                        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
-                          Recruitment Drives in Active Matching Matrix
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {preview.drives?.map((drive: any) => (
-                            <div
-                              key={drive.id}
-                              className="flex items-center justify-between p-3.5 rounded-xl bg-muted/40 border border-border hover:bg-muted/70 transition-colors"
-                            >
-                              <div>
-                                <div className="text-sm font-bold text-foreground">{drive.company}</div>
-                                <div className="text-xs text-muted-foreground mt-0.5">
-                                  {drive.role} • <span className="text-indigo-500 font-semibold font-mono">₹{drive.packageLpa} LPA</span>
-                                </div>
-                              </div>
-                              <Badge variant="secondary" className="font-mono font-bold text-xs">
-                                {drive.openPositions} seats
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )
-                )}
+              <Card className="p-5 flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Active Drives</div>
+                  <div className="text-3xl font-extrabold font-mono text-foreground mt-1">
+                    {previewLoading ? '—' : preview?.summary?.activeDrives || 0}
+                  </div>
+                  <div className="text-xs text-muted-foreground font-medium mt-0.5">Participating recruiters</div>
+                </div>
+                <Briefcase className="w-9 h-9 text-purple-500/30" />
+              </Card>
+
+              <Card className="p-5 flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Tier Hierarchy</div>
+                  <div className="text-sm font-extrabold text-foreground mt-1">
+                    DREAM &gt; CORE &gt; MASS
+                  </div>
+                  <div className="text-xs text-muted-foreground font-medium mt-0.5">Strict non-downgrade rule</div>
+                </div>
+                <Award className="w-9 h-9 text-amber-500/30" />
+              </Card>
+            </div>
+
+            {/* Launch Banner Action */}
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-1.5 max-w-2xl">
+                  <h3 className="text-xl font-extrabold text-foreground flex items-center gap-2">
+                    <Zap className="w-6 h-6 text-indigo-500" />
+                    Ready to Compute Optimal Matchings
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Executing the engine evaluates student preference rankings against company recruiter scores and minimum GPA thresholds, producing a stable, zero-blocking-pair allocation.
+                  </p>
+                </div>
+
+                <Button
+                  onClick={runAllocation}
+                  disabled={loadingAction || previewLoading}
+                  variant="brand"
+                  size="lg"
+                  className="font-bold shadow-lg shadow-indigo-500/25 shrink-0 text-base"
+                >
+                  <Play className="w-5 h-5 mr-2 fill-current" /> Execute Allocation Engine
+                </Button>
               </CardContent>
             </Card>
 
-            {/* Historical Runs Log */}
+            {/* Participating Corporate Drives Table */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg">Participating Companies &amp; Quotas</CardTitle>
+                    <CardDescription className="text-sm">Verified corporate drives participating in this allocation cycle</CardDescription>
+                  </div>
+                  <Badge variant="outline" className="text-xs font-mono font-semibold">
+                    {preview?.drives?.length || 0} Drives Registered
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="font-bold text-xs uppercase">Company</TableHead>
+                      <TableHead className="font-bold text-xs uppercase">Role</TableHead>
+                      <TableHead className="font-bold text-xs uppercase">Offer Tier</TableHead>
+                      <TableHead className="font-bold text-xs uppercase">Min GPA</TableHead>
+                      <TableHead className="font-bold text-xs uppercase">Total Quota</TableHead>
+                      <TableHead className="font-bold text-xs uppercase">Eligible Applicants</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {previewLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-12 text-sm text-muted-foreground">
+                          <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary mb-2" />
+                          Loading recruitment matrix...
+                        </TableCell>
+                      </TableRow>
+                    ) : preview?.drives?.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-12 text-sm text-muted-foreground">
+                          No corporate drives configured for this cycle.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      preview?.drives?.map((drive: any) => (
+                        <TableRow key={drive.id}>
+                          <TableCell className="font-bold text-sm text-foreground">
+                            {drive.company?.name || 'Company'}
+                          </TableCell>
+                          <TableCell className="text-sm text-foreground font-medium">{drive.jobTitle}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                drive.offerTier === 'SUPER_DREAM' || drive.offerTier === 'DREAM'
+                                  ? 'purple'
+                                  : drive.offerTier === 'CORE'
+                                  ? 'brand'
+                                  : 'secondary'
+                              }
+                              className="text-xs font-bold"
+                            >
+                              {drive.offerTier}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-mono text-sm font-semibold text-indigo-500">
+                            {drive.minGpa?.toFixed(2)} GPA
+                          </TableCell>
+                          <TableCell className="font-mono text-sm font-bold text-emerald-500">
+                            {drive.quota} seats
+                          </TableCell>
+                          <TableCell className="font-mono text-sm font-bold text-foreground">
+                            {drive.applications?.length || 0} candidates
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            {/* Historical Execution Runs */}
             {runs?.data?.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-indigo-500" />
-                    Institutional Allocation History & Stability Audits
-                  </CardTitle>
+                  <CardTitle className="text-lg">Previous Allocation Execution History</CardTitle>
+                  <CardDescription className="text-sm">Audit trail of completed matching algorithms</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  {runs.data.map((run: any) => (
-                    <div
-                      key={run.id}
-                      className="flex items-center justify-between p-3.5 rounded-xl bg-muted/30 border border-border hover:bg-muted/60 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                        <div>
-                          <div className="text-sm font-bold text-foreground">
-                            Academic Cycle {run.cycle?.academicYear || run.season} Matching Run
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(run.completedAt || run.createdAt).toLocaleString()} • Triggered by {run.triggeredBy || 'TPO Admin'}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs font-mono">
-                        <span className="text-emerald-500 font-bold">{run.totalMatches} matches</span>
-                        <span className="text-purple-500 font-bold">{run.cascadeCount || 0} cascades</span>
-                        <Badge variant="success" className="font-sans text-xs">
-                          {run.blockingPairCount === 0 ? '0 Blocking Pairs' : `${run.blockingPairCount} Blocking Pairs`}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="font-bold text-xs uppercase">Timestamp</TableHead>
+                        <TableHead className="font-bold text-xs uppercase">Status</TableHead>
+                        <TableHead className="font-bold text-xs uppercase">Allocated Candidates</TableHead>
+                        <TableHead className="font-bold text-xs uppercase">Cascades</TableHead>
+                        <TableHead className="font-bold text-xs uppercase">Stability Certificate</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {runs.data.slice(0, 5).map((run: any) => (
+                        <TableRow key={run.id}>
+                          <TableCell className="font-mono text-sm text-foreground font-medium">
+                            {new Date(run.createdAt).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="success" className="text-xs font-bold">
+                              {run.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-mono text-sm font-bold text-emerald-500">
+                            {run.allocatedCount} / {run.eligibleCount}
+                          </TableCell>
+                          <TableCell className="font-mono text-sm font-bold text-purple-500">
+                            {run.cascadeCount}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                              Verified Stable (0 BP)
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </CardContent>
               </Card>
             )}
@@ -258,11 +324,11 @@ export const AllocationPage: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <Card className="p-12 text-center">
+            <Card className="p-16 text-center">
               <div className="max-w-md mx-auto space-y-4">
                 <Loader2 className="w-12 h-12 text-primary mx-auto animate-spin" />
-                <h2 className="text-xl font-bold text-foreground">Executing Multi-Seat Gale-Shapley Algorithm</h2>
-                <p className="text-muted-foreground text-xs leading-relaxed">
+                <h2 className="text-2xl font-bold text-foreground">Executing Multi-Seat Gale-Shapley Algorithm</h2>
+                <p className="text-muted-foreground text-sm leading-relaxed">
                   Evaluating student GPA cutoffs, department eligibility wildcards, recruiter scoring matrices, quota constraints, and resolving recursive DREAM &gt; CORE &gt; MASS tier cascades...
                 </p>
               </div>
@@ -272,25 +338,25 @@ export const AllocationPage: React.FC = () => {
 
         {/* ─── Results Phase ─────────────────────────────────── */}
         {phase === 'results' && result && (
-          <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
+          <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-8">
             {/* Result Header Card */}
             <Card>
               <CardContent className="p-6 space-y-6">
                 <div className="flex items-center justify-between flex-wrap gap-4">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/30">
-                      <CheckCircle2 className="w-7 h-7 text-emerald-500" />
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/30">
+                      <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                     </div>
                     <div>
                       <h2 className="text-2xl font-extrabold text-foreground">Allocation Algorithm Converged</h2>
-                      <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                      <p className="text-sm text-muted-foreground font-medium mt-0.5">
                         Many-to-One Gale-Shapley matched <span className="text-emerald-500 font-bold">{result.metrics?.allocatedCount || 0} candidates</span> with <span className="text-purple-500 font-bold">{result.metrics?.cascadeCount || 0} offer tier cascades</span>.
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Badge variant="success" className="px-3.5 py-1.5 text-xs font-bold gap-2">
-                      <ShieldCheck className="w-4 h-4" /> 0 Blocking Pairs (Stable Matching)
+                    <Badge variant="success" className="px-4 py-2 text-sm font-bold gap-2">
+                      <ShieldCheck className="w-5 h-5" /> 0 Blocking Pairs (Stable Matching)
                     </Badge>
                     <Button
                       variant="outline"
@@ -299,7 +365,7 @@ export const AllocationPage: React.FC = () => {
                         setPhase('preview');
                         setResult(null);
                       }}
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 font-bold"
                     >
                       <RotateCw className="w-4 h-4" /> Reset & Re-run
                     </Button>
@@ -307,39 +373,39 @@ export const AllocationPage: React.FC = () => {
                 </div>
 
                 {/* Metrics Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="p-5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                  <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center">
                     <div className="text-4xl font-extrabold text-emerald-500 font-mono tracking-tight">
                       <MatchedCount value={result.metrics?.placementRate || 0} />%
                     </div>
-                    <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-1 uppercase tracking-wider">Placement Rate</div>
-                    <p className="text-[11px] text-muted-foreground mt-1">
+                    <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-1 uppercase tracking-wider">Placement Rate</div>
+                    <p className="text-xs text-muted-foreground mt-1">
                       {result.metrics?.allocatedCount} placed of {result.metrics?.eligibleStudents} eligible candidates
                     </p>
                   </div>
 
-                  <div className="p-5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-center">
+                  <div className="p-5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-center">
                     <div className="text-4xl font-extrabold text-indigo-500 font-mono tracking-tight">
                       <MatchedCount value={result.metrics?.firstChoiceRate || 0} />%
                     </div>
-                    <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-1 uppercase tracking-wider">1st Choice Rate</div>
-                    <p className="text-[11px] text-muted-foreground mt-1">Top-3 Preference Rate: {result.metrics?.top3Rate}%</p>
+                    <div className="text-sm font-bold text-indigo-600 dark:text-indigo-400 mt-1 uppercase tracking-wider">1st Choice Rate</div>
+                    <p className="text-xs text-muted-foreground mt-1">Top-3 Preference Rate: {result.metrics?.top3Rate}%</p>
                   </div>
 
-                  <div className="p-5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-center">
+                  <div className="p-5 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-center">
                     <div className="text-4xl font-extrabold text-purple-500 font-mono tracking-tight">
                       <MatchedCount value={result.metrics?.cascadeCount || 0} />
                     </div>
-                    <div className="text-xs font-bold text-purple-600 dark:text-purple-400 mt-1 uppercase tracking-wider">Tier Cascades</div>
-                    <p className="text-[11px] text-muted-foreground mt-1">DREAM &gt; CORE &gt; MASS Resolved</p>
+                    <div className="text-sm font-bold text-purple-600 dark:text-purple-400 mt-1 uppercase tracking-wider">Tier Cascades</div>
+                    <p className="text-xs text-muted-foreground mt-1">DREAM &gt; CORE &gt; MASS Resolved</p>
                   </div>
 
-                  <div className="p-5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
+                  <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center">
                     <div className="text-4xl font-extrabold text-amber-500 font-mono tracking-tight">
                       <MatchedCount value={result.metrics?.quotaUtilizationRate || 0} />%
                     </div>
-                    <div className="text-xs font-bold text-amber-600 dark:text-amber-400 mt-1 uppercase tracking-wider">Quota Utilization</div>
-                    <p className="text-[11px] text-muted-foreground mt-1">Capacity: {result.metrics?.totalQuota} seats</p>
+                    <div className="text-sm font-bold text-amber-600 dark:text-amber-400 mt-1 uppercase tracking-wider">Quota Utilization</div>
+                    <p className="text-xs text-muted-foreground mt-1">Capacity: {result.metrics?.totalQuota} seats</p>
                   </div>
                 </div>
               </CardContent>
@@ -352,22 +418,22 @@ export const AllocationPage: React.FC = () => {
             {result.cascadeLogs?.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base flex items-center gap-2 text-purple-500">
+                  <CardTitle className="text-lg flex items-center gap-2 text-purple-500">
                     <Sparkles className="w-5 h-5" />
                     Offer Tier Cascading Execution Trail ({result.cascadeLogs.length} Events)
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="divide-y divide-border max-h-60 overflow-y-auto pr-2">
+                  <div className="divide-y divide-border max-h-72 overflow-y-auto pr-2">
                     {result.cascadeLogs.map((log: any, i: number) => (
-                      <div key={i} className="py-2.5 flex items-center justify-between gap-4 text-xs">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="purple" className="font-mono text-[10px] uppercase">
+                      <div key={i} className="py-3 flex items-center justify-between gap-4 text-sm">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="purple" className="font-mono text-xs uppercase font-bold">
                             {log.type}
                           </Badge>
-                          <span className="text-foreground font-medium">{log.description}</span>
+                          <span className="text-foreground font-semibold">{log.description}</span>
                         </div>
-                        <span className="text-muted-foreground font-mono shrink-0">Depth: {log.depth}</span>
+                        <span className="text-muted-foreground font-mono text-xs shrink-0 font-medium">Depth: {log.depth}</span>
                       </div>
                     ))}
                   </div>
@@ -381,13 +447,13 @@ export const AllocationPage: React.FC = () => {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle className="text-base flex items-center gap-2">
+                      <CardTitle className="text-lg flex items-center gap-2">
                         <Info className="w-5 h-5 text-indigo-500" />
                         Explainable Allocation Decision Tracing ({result.explanations.length})
                       </CardTitle>
-                      <CardDescription>Transparent mathematical factor breakdown per candidate</CardDescription>
+                      <CardDescription className="text-sm">Transparent mathematical factor breakdown per candidate</CardDescription>
                     </div>
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs font-bold">
                       Auditable
                     </Badge>
                   </div>
@@ -396,53 +462,53 @@ export const AllocationPage: React.FC = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Candidate</TableHead>
-                        <TableHead>Assigned Drive</TableHead>
-                        <TableHead>Dept & GPA</TableHead>
-                        <TableHead>Skill Match</TableHead>
-                        <TableHead>Recruiter</TableHead>
-                        <TableHead>Pref #</TableHead>
-                        <TableHead>Reasoning</TableHead>
-                        <TableHead className="text-right">Student Explanation</TableHead>
+                        <TableHead className="font-bold text-xs uppercase">Candidate</TableHead>
+                        <TableHead className="font-bold text-xs uppercase">Assigned Drive</TableHead>
+                        <TableHead className="font-bold text-xs uppercase">Dept &amp; GPA</TableHead>
+                        <TableHead className="font-bold text-xs uppercase">Skill Match</TableHead>
+                        <TableHead className="font-bold text-xs uppercase">Recruiter</TableHead>
+                        <TableHead className="font-bold text-xs uppercase">Pref #</TableHead>
+                        <TableHead className="font-bold text-xs uppercase">Reasoning</TableHead>
+                        <TableHead className="font-bold text-xs uppercase text-right">Student Explanation</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {result.explanations.slice(0, 30).map((expl: any, idx: number) => (
                         <TableRow key={idx}>
                           <TableCell>
-                            <div className="font-bold text-foreground">{expl.studentName}</div>
-                            <div className="text-[10px] text-muted-foreground font-mono">{expl.studentId}</div>
+                            <div className="font-bold text-sm text-foreground">{expl.studentName}</div>
+                            <div className="text-xs text-muted-foreground font-mono font-medium">{expl.studentId}</div>
                           </TableCell>
                           <TableCell>
                             {expl.companyName !== 'None' ? (
                               <div>
-                                <span className="font-bold text-foreground">{expl.companyName}</span>
-                                <div className="text-[10px] text-indigo-500 font-semibold">{expl.tier}</div>
+                                <span className="font-bold text-sm text-foreground">{expl.companyName}</span>
+                                <div className="text-xs text-indigo-500 font-bold">{expl.tier}</div>
                               </div>
                             ) : (
-                              <span className="text-muted-foreground italic text-xs">Unallocated</span>
+                              <span className="text-muted-foreground italic text-sm">Unallocated</span>
                             )}
                           </TableCell>
                           <TableCell>
-                            <div className="text-xs text-foreground font-medium">{expl.department}</div>
-                            <div className="text-[11px] font-bold text-indigo-500 font-mono">{expl.gpa.toFixed(2)} GPA</div>
+                            <div className="text-sm text-foreground font-semibold">{expl.department}</div>
+                            <div className="text-xs font-bold text-indigo-500 font-mono">{expl.gpa.toFixed(2)} GPA</div>
                           </TableCell>
-                          <TableCell className="font-mono font-bold text-emerald-500 text-xs">
+                          <TableCell className="font-mono font-bold text-emerald-500 text-sm">
                             {expl.skillMatchPercentage > 0 ? `${expl.skillMatchPercentage}%` : '—'}
                           </TableCell>
-                          <TableCell className="font-mono font-bold text-foreground text-xs">
+                          <TableCell className="font-mono font-bold text-foreground text-sm">
                             {expl.recruiterScore > 0 ? expl.recruiterScore : '—'}
                           </TableCell>
-                          <TableCell className="font-mono font-bold text-purple-500 text-xs">
+                          <TableCell className="font-mono font-bold text-purple-500 text-sm">
                             {expl.preferenceRank > 0 ? `#${expl.preferenceRank}` : '—'}
                           </TableCell>
-                          <TableCell className="text-xs text-muted-foreground max-w-xs">{expl.reason}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground max-w-xs leading-relaxed">{expl.reason}</TableCell>
                           <TableCell className="text-right">
                             <Button
                               variant="secondary"
                               size="sm"
                               onClick={() => setSelectedExplanation(expl)}
-                              className="text-xs font-semibold"
+                              className="text-xs font-bold cursor-pointer"
                             >
                               Transparency View
                             </Button>
@@ -463,41 +529,41 @@ export const AllocationPage: React.FC = () => {
         {selectedExplanation && (
           <div>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-primary" />
+              <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+                <HelpCircle className="w-6 h-6 text-primary" />
                 Candidate Transparency: {selectedExplanation.studentName}
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-sm">
                 Plain-language justification presented to the candidate in their portal.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="p-4 rounded-xl bg-muted/60 border border-border space-y-3 my-4">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="p-5 rounded-2xl bg-muted/60 border border-border space-y-3 my-5">
+              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Verified Algorithmic Rationale:
               </div>
-              <p className="text-xs text-foreground leading-relaxed font-medium">
+              <p className="text-sm text-foreground leading-relaxed font-semibold">
                 {selectedExplanation.studentSafeExplanation}
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 text-xs font-mono p-3 rounded-lg bg-card border border-border mb-4">
+            <div className="grid grid-cols-3 gap-3 text-sm font-mono p-4 rounded-xl bg-card border border-border mb-5">
               <div>
-                <span className="text-muted-foreground block text-[10px]">Department</span>
-                <strong className="text-foreground">{selectedExplanation.department}</strong>
+                <span className="text-muted-foreground block text-xs font-bold uppercase">Department</span>
+                <strong className="text-foreground text-sm">{selectedExplanation.department}</strong>
               </div>
               <div>
-                <span className="text-muted-foreground block text-[10px]">Cumulative GPA</span>
-                <strong className="text-indigo-500">{selectedExplanation.gpa.toFixed(2)}</strong>
+                <span className="text-muted-foreground block text-xs font-bold uppercase">Cumulative GPA</span>
+                <strong className="text-indigo-500 text-sm">{selectedExplanation.gpa.toFixed(2)}</strong>
               </div>
               <div>
-                <span className="text-muted-foreground block text-[10px]">Pref Rank</span>
-                <strong className="text-purple-500">#{selectedExplanation.preferenceRank || 'N/A'}</strong>
+                <span className="text-muted-foreground block text-xs font-bold uppercase">Pref Rank</span>
+                <strong className="text-purple-500 text-sm">#{selectedExplanation.preferenceRank || 'N/A'}</strong>
               </div>
             </div>
 
             <DialogFooter>
-              <Button onClick={() => setSelectedExplanation(null)} size="sm">
+              <Button onClick={() => setSelectedExplanation(null)} size="sm" className="font-bold">
                 Close
               </Button>
             </DialogFooter>

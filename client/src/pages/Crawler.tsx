@@ -154,9 +154,9 @@ export const Crawler: React.FC = () => {
             <div key={src.id} className="bg-zinc-800/40 border border-zinc-700/60 rounded-xl p-3 flex items-center justify-between">
               <div className="truncate mr-2">
                 <h4 className="font-semibold text-white text-xs truncate">{src.name}</h4>
-                <p className="text-[11px] text-zinc-400 truncate">{src.url}</p>
+                <p className="text-xs text-zinc-400 truncate">{src.url}</p>
               </div>
-              <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0">
+              <span className="px-2 py-0.5 text-xs font-semibold rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0">
                 {src.status}
               </span>
             </div>
@@ -198,11 +198,11 @@ export const Crawler: React.FC = () => {
                       </p>
                     </div>
                     {job.status === 'CONVERTED_TO_DRIVE' ? (
-                      <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                         Converted
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
                         New
                       </span>
                     )}
@@ -223,12 +223,12 @@ export const Crawler: React.FC = () => {
                   {/* Skills Pills */}
                   <div className="flex flex-wrap gap-1 pt-1">
                     {reqSkills.slice(0, 3).map((s) => (
-                      <span key={s} className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
+                      <span key={s} className="px-2 py-0.5 rounded text-xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
                         {s}
                       </span>
                     ))}
                     {reqSkills.length > 3 && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] text-zinc-500">
+                      <span className="px-1.5 py-0.5 rounded text-xs text-zinc-500">
                         +{reqSkills.length - 3} more
                       </span>
                     )}
@@ -311,7 +311,7 @@ export const Crawler: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <div className="text-right">
                         <span className="text-sm font-bold text-emerald-400">{match.compatibilityScore}%</span>
-                        <p className="text-[10px] text-zinc-500">
+                        <p className="text-xs text-zinc-500">
                           {match.requiredSkillsMet ? 'Mandatory met' : 'Missing required skills'}
                         </p>
                       </div>
