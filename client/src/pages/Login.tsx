@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api';
@@ -7,13 +7,14 @@ import { useAppStore } from '../store/appStore';
 import {
   GraduationCap, ShieldCheck, Building2, User, KeyRound,
   ArrowRight, Sparkles, CheckCircle2, AlertCircle, Users,
-  Sun, Moon, ShieldAlert, Laptop
+  Sun, Moon, ShieldAlert, Laptop, Shield
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { cn } from '../lib/utils';
+import { SecurityCaptcha, CaptchaRef } from '../components/auth/SecurityCaptcha';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -23,9 +24,12 @@ export const LoginPage: React.FC = () => {
   const [portalType, setPortalType] = useState<'admin' | 'student'>('student');
   const [identifier, setIdentifier] = useState('STU1001');
   const [password, setPassword] = useState('student123');
+  const [captchaInput, setCaptchaInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [demoData, setDemoData] = useState<{ staff: any[]; students: any[] }>({ staff: [], students: [] });
+
+  const captchaRef = useRef<CaptchaRef | null>(null);
 
   useEffect(() => {
     api.getDemoAccounts()
@@ -40,6 +44,15 @@ export const LoginPage: React.FC = () => {
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setError(null);
+
+    // 1. Verify CAPTCHA
+    if (!captchaRef.current?.validate(captchaInput)) {
+      setError('Invalid security CAPTCHA code. Please verify the characters displayed in the badge.');
+      captchaRef.current?.refresh();
+      setCaptchaInput('');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -59,6 +72,8 @@ export const LoginPage: React.FC = () => {
       }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.');
+      captchaRef.current?.refresh();
+      setCaptchaInput('');
     } finally {
       setLoading(false);
     }
@@ -70,6 +85,10 @@ export const LoginPage: React.FC = () => {
     setPortalType(pType);
     setIdentifier(id);
     setPassword(pass);
+
+    // Auto-fill active captcha code for 1-click demo test convenience
+    const currentCode = captchaRef.current?.getCode() || '';
+    setCaptchaInput(currentCode);
 
     try {
       const res = await api.login({
@@ -88,6 +107,7 @@ export const LoginPage: React.FC = () => {
       }
     } catch (err: any) {
       setError(err.message || 'Quick login failed');
+      captchaRef.current?.refresh();
     } finally {
       setLoading(false);
     }
@@ -116,7 +136,7 @@ export const LoginPage: React.FC = () => {
       </div>
 
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-8 z-10 my-auto items-stretch">
-        {/* Left Column: Login Card */}
+        {/* Left Column: Login Card with Security CAPTCHA */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -200,7 +220,7 @@ export const LoginPage: React.FC = () => {
               </motion.div>
             )}
 
-            {/* Login Form */}
+            {/* Login Form with CAPTCHA */}
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-2">
@@ -233,6 +253,30 @@ export const LoginPage: React.FC = () => {
                     required
                   />
                   <KeyRound className="w-5 h-5 text-muted-foreground absolute left-3.5 top-3 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Security CAPTCHA Verification */}
+              <div className="space-y-2 pt-1 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Shield className="w-4 h-4 text-indigo-500" />
+                    Security CAPTCHA Verification
+                  </label>
+                  <span className="text-[11px] text-muted-foreground font-medium">Case-insensitive</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                  <SecurityCaptcha ref={captchaRef} />
+                  <Input
+                    type="text"
+                    value={captchaInput}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCaptchaInput(e.target.value.toUpperCase())}
+                    placeholder="Enter CAPTCHA code"
+                    className="font-mono text-sm uppercase tracking-widest font-bold"
+                    maxLength={6}
+                    required
+                  />
                 </div>
               </div>
 
@@ -269,7 +313,7 @@ export const LoginPage: React.FC = () => {
                 1-Click Demo Personas
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Quickly test the platform across different user perspectives for hackathon evaluation:
+                Quickly test the platform across different user perspectives (auto-verified for hackathon evaluation):
               </p>
             </div>
 
@@ -348,7 +392,7 @@ export const LoginPage: React.FC = () => {
             </div>
 
             <div className="text-xs text-muted-foreground text-center pt-3 border-t border-border font-medium">
-              Clicking any persona will instantly log in and take you to that user's view.
+              Clicking any persona auto-verifies CAPTCHA and logs in directly.
             </div>
           </Card>
         </motion.div>
