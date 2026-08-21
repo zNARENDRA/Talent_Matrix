@@ -5,10 +5,14 @@ import { useAppStore } from '../../store/appStore';
 import { useAuthStore } from '../../lib/authStore';
 import { api } from '../../lib/api';
 import {
-  Search, Bell, ChevronDown, X, Clock, AlertTriangle,
+  Search, Bell, ChevronDown, Clock, AlertTriangle,
   CheckCircle, Info, ShieldAlert, CalendarClock, Shuffle,
-  UserCircle, LogIn, GraduationCap, ShieldCheck,
+  UserCircle, LogIn, GraduationCap, ShieldCheck, Check
 } from 'lucide-react';
+import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
+import { Avatar } from '../ui/avatar';
+import { cn } from '../../lib/utils';
 
 export const Topbar: React.FC = () => {
   const navigate = useNavigate();
@@ -26,57 +30,51 @@ export const Topbar: React.FC = () => {
   }, []);
 
   const severityIcon: Record<string, React.ReactNode> = {
-    critical: <ShieldAlert className="w-4 h-4 text-danger-500" />,
-    error: <AlertTriangle className="w-4 h-4 text-danger-500" />,
-    warning: <AlertTriangle className="w-4 h-4 text-warning-500" />,
-    info: <Info className="w-4 h-4 text-info-500" />,
-  };
-
-  const typeIcon: Record<string, React.ReactNode> = {
-    anomaly: <ShieldAlert className="w-4 h-4" />,
-    scheduling_conflict: <CalendarClock className="w-4 h-4" />,
-    allocation: <Shuffle className="w-4 h-4" />,
-    offer: <CheckCircle className="w-4 h-4" />,
-    deadline: <Clock className="w-4 h-4" />,
-    system: <Info className="w-4 h-4" />,
+    critical: <ShieldAlert className="w-4 h-4 text-rose-500" />,
+    error: <AlertTriangle className="w-4 h-4 text-rose-500" />,
+    warning: <AlertTriangle className="w-4 h-4 text-amber-500" />,
+    info: <Info className="w-4 h-4 text-sky-500" />,
   };
 
   const isStudent = role === 'student';
 
   return (
-    <header className="h-16 bg-white/80 dark:bg-surface-900/80 backdrop-blur-md border-b border-surface-200 dark:border-surface-800 flex items-center justify-between px-6 sticky top-0 z-30">
-      {/* Search */}
+    <header className="h-16 bg-card/90 backdrop-blur-md border-b border-border flex items-center justify-between px-6 sticky top-0 z-30 select-none">
+      {/* Search Input Trigger */}
       <button
         onClick={() => setCommandPaletteOpen(true)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-100 dark:bg-surface-800 text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 text-sm transition-colors w-72 group"
+        className="flex items-center gap-2.5 px-3.5 py-2 rounded-lg bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-medium transition-all w-72 border border-border/60 group"
       >
-        <Search className="w-4 h-4" />
-        <span>Search students, companies, drives...</span>
-        <kbd className="ml-auto text-xs bg-surface-200 dark:bg-surface-700 px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
+        <Search className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+        <span className="truncate">Search students, drives, algorithms...</span>
+        <kbd className="ml-auto text-[10px] bg-background border border-border px-1.5 py-0.5 rounded font-mono text-muted-foreground shadow-xs">
+          ⌘K
+        </kbd>
       </button>
 
       <div className="flex items-center gap-3">
-        {/* Season Selector */}
-        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 text-sm font-medium hover:bg-primary-100 dark:hover:bg-primary-900/30 transition-colors">
+        {/* Placement Season Pill */}
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/60 border border-border/80 text-xs font-semibold text-foreground">
+          <span className="w-2 h-2 rounded-full bg-indigo-500" />
           <span>{currentSeason} Placement Season</span>
-          <ChevronDown className="w-3.5 h-3.5" />
-        </button>
-
-        {/* System Status */}
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-success-600 dark:text-success-500">
-          <div className="w-2 h-2 rounded-full bg-success-500 animate-pulse" />
-          Live
         </div>
 
-        {/* Notifications */}
+        {/* Live Operational Status */}
+        <Badge variant="success" className="hidden md:inline-flex gap-1.5 px-2.5 py-1 text-[11px] font-semibold">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          Live
+        </Badge>
+
+        {/* Notifications Dropdown */}
         <div className="relative">
           <button
             onClick={() => setShowNotifs(!showNotifs)}
-            className="relative p-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+            className="relative p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            title="System Notifications"
           >
-            <Bell className="w-5 h-5 text-surface-500" />
+            <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-danger-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+              <span className="absolute 1 top-1 right-1 w-4 h-4 bg-rose-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -87,38 +85,57 @@ export const Topbar: React.FC = () => {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowNotifs(false)} />
                 <motion.div
-                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  initial={{ opacity: 0, y: 8, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                  className="absolute right-0 top-12 w-96 bg-white dark:bg-surface-900 border border-surface-200 dark:border-surface-700 rounded-xl shadow-xl z-50 overflow-hidden"
+                  exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 top-12 w-96 bg-card border border-border rounded-xl shadow-2xl z-50 overflow-hidden text-card-foreground"
                 >
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-surface-200 dark:border-surface-700">
-                    <h3 className="font-semibold text-sm">Notifications</h3>
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/40">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-foreground">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                          {unreadCount} New
+                        </Badge>
+                      )}
+                    </div>
                     <button
-                      onClick={() => { api.markAllRead(); setUnreadCount(0); }}
-                      className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                      onClick={() => {
+                        api.markAllRead();
+                        setUnreadCount(0);
+                      }}
+                      className="text-[11px] font-semibold text-primary hover:underline"
                     >
                       Mark all read
                     </button>
                   </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {notifications.map((n) => (
-                      <div
-                        key={n.id}
-                        className={`px-4 py-3 border-b border-surface-100 dark:border-surface-800 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors ${!n.isRead ? 'bg-primary-50/30 dark:bg-primary-900/10' : ''}`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5">{severityIcon[n.severity] || typeIcon[n.type]}</div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-surface-900 dark:text-surface-100">{n.title}</div>
-                            <div className="text-xs text-surface-500 mt-0.5 line-clamp-2">{n.message}</div>
-                            <div className="text-xs text-surface-400 mt-1">{new Date(n.createdAt).toLocaleString()}</div>
-                          </div>
-                          {!n.isRead && <div className="w-2 h-2 rounded-full bg-primary-500 mt-2" />}
-                        </div>
+                  <div className="max-h-80 overflow-y-auto divide-y divide-border">
+                    {notifications.length === 0 ? (
+                      <div className="py-8 text-center text-xs text-muted-foreground">
+                        No notifications to display.
                       </div>
-                    ))}
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          className={cn(
+                            'p-3.5 hover:bg-muted/50 transition-colors cursor-pointer',
+                            !n.isRead ? 'bg-primary/5' : ''
+                          )}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="mt-0.5">{severityIcon[n.severity] || <Info className="w-4 h-4 text-primary" />}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-bold text-foreground">{n.title}</div>
+                              <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.message}</div>
+                              <div className="text-[10px] text-muted-foreground/80 mt-1 font-mono">{new Date(n.createdAt).toLocaleTimeString()}</div>
+                            </div>
+                            {!n.isRead && <div className="w-2 h-2 rounded-full bg-primary mt-1.5" />}
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </motion.div>
               </>
@@ -126,25 +143,27 @@ export const Topbar: React.FC = () => {
           </AnimatePresence>
         </div>
 
-        {/* User / Persona Switcher Button */}
-        <button
+        {/* User Profile Pill */}
+        <div
           onClick={() => navigate('/login')}
-          className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-800/80 hover:border-primary-500 transition-all text-xs"
+          className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg bg-muted/60 border border-border/80 hover:bg-muted cursor-pointer transition-all"
         >
-          <div className="w-6 h-6 rounded-lg bg-primary-600 text-white font-bold flex items-center justify-center text-[10px]">
-            {isStudent ? <GraduationCap className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+          <Avatar
+            className="w-7 h-7 font-bold text-[11px]"
+            fallback={user?.name ? user.name.slice(0, 2).toUpperCase() : isStudent ? 'ST' : 'RK'}
+          />
+          <div className="hidden lg:flex flex-col text-left">
+            <span className="text-xs font-bold text-foreground leading-none">
+              {user?.name || (isStudent ? 'Aarav Sharma' : 'Dr. Rajesh Kumar')}
+            </span>
+            <span className="text-[10px] text-muted-foreground font-semibold uppercase leading-tight mt-0.5">
+              {user?.role?.replace('_', ' ') || (isStudent ? 'Candidate' : 'TPO Admin')}
+            </span>
           </div>
-          <div className="text-left hidden md:block">
-            <div className="font-semibold text-surface-900 dark:text-white leading-tight">
-              {user?.name || 'Dr. Rajesh Kumar'}
-            </div>
-            <div className="text-[10px] text-surface-400 uppercase font-mono">
-              {isStudent ? `Student (${user?.studentId || 'STU1001'})` : 'T&P Staff'}
-            </div>
-          </div>
-          <span className="text-[10px] text-primary-600 dark:text-primary-400 font-semibold ml-1">Switch</span>
-        </button>
+          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+        </div>
       </div>
     </header>
   );
 };
+export default Topbar;

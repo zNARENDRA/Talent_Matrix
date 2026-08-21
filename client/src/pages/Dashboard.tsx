@@ -6,115 +6,151 @@ import { api } from '../lib/api';
 import {
   Users, Building2, GraduationCap, Briefcase, TrendingUp, CalendarClock,
   Clock, ShieldAlert, CheckCircle2, ArrowUpRight, ArrowDownRight,
-  Megaphone, Activity, AlertTriangle, ArrowRight,
+  Megaphone, Activity, AlertTriangle, ArrowRight, Sparkles, Shuffle
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Area, AreaChart,
+  PieChart, Pie, Cell
 } from 'recharts';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
+import { cn } from '../lib/utils';
 
-const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } };
-const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' as const } } };
+const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } };
+const item = { hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0, transition: { duration: 0.3 } } };
 
-// ─── KPI Card ──────────────────────────────────────────────────
+// ─── shadcn Metric Card ─────────────────────────────────────────
 const KPICard: React.FC<{
-  title: string; value: number; suffix?: string; trend?: number; icon: React.ReactNode;
-  color: string; onClick?: () => void; format?: (n: number) => string;
-}> = ({ title, value, suffix, trend, icon, color, onClick, format }) => {
+  title: string;
+  value: number;
+  suffix?: string;
+  trend?: number;
+  icon: React.ReactNode;
+  iconBg?: string;
+  onClick?: () => void;
+  format?: (n: number) => string;
+}> = ({ title, value, suffix, trend, icon, iconBg = 'bg-primary/10 text-primary', onClick, format }) => {
   const animatedValue = useAnimatedCounter(value);
   const displayValue = format ? format(animatedValue) : animatedValue.toLocaleString();
 
   return (
-    <motion.div variants={item} className="kpi-card group" onClick={onClick}>
-      <div className="flex items-start justify-between mb-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>{icon}</div>
-        {trend !== undefined && (
-          <div className={`flex items-center gap-0.5 text-xs font-medium ${trend >= 0 ? 'text-success-600' : 'text-danger-500'}`}>
-            {trend >= 0 ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-            {Math.abs(trend)}%
+    <Card
+      onClick={onClick}
+      className={cn(
+        'relative overflow-hidden group transition-all duration-200 border-border/80 bg-card hover:border-primary/40 hover:shadow-md select-none',
+        onClick ? 'cursor-pointer' : ''
+      )}
+    >
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {title}
+          </div>
+          <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center font-bold', iconBg)}>
+            {icon}
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-baseline justify-between">
+          <div className="text-3xl font-extrabold font-mono tracking-tight text-foreground">
+            {displayValue}{suffix}
+          </div>
+
+          {trend !== undefined && (
+            <Badge
+              variant={trend >= 0 ? 'success' : 'destructive'}
+              className="text-[10px] px-1.5 py-0 font-mono font-bold flex items-center gap-0.5"
+            >
+              {trend >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+              {Math.abs(trend)}%
+            </Badge>
+          )}
+        </div>
+
+        {onClick && (
+          <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+            Explore module <ArrowRight className="w-3 h-3" />
           </div>
         )}
-      </div>
-      <div className="text-2xl font-bold text-surface-900 dark:text-white">
-        {displayValue}{suffix}
-      </div>
-      <div className="text-sm text-surface-500 mt-1">{title}</div>
-      {onClick && (
-        <div className="mt-2 flex items-center gap-1 text-xs text-primary-600 dark:text-primary-400 opacity-0 group-hover:opacity-100 transition-opacity">
-          View details <ArrowRight className="w-3 h-3" />
-        </div>
-      )}
-    </motion.div>
+      </CardContent>
+    </Card>
   );
 };
 
-// ─── Funnel Chart ──────────────────────────────────────────────
+// ─── shadcn Funnel Visualizer ──────────────────────────────────
 const FunnelChart: React.FC<{ stages: any[] }> = ({ stages }) => {
-  const maxCount = Math.max(...stages.map((s: any) => s.count));
+  const maxCount = Math.max(...stages.map((s: any) => s.count)) || 1;
+
   return (
-    <div className="space-y-2">
-      {stages.map((stage: any, i: number) => (
-        <motion.div
-          key={stage.name}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: i * 0.08, duration: 0.4 }}
-          className="group cursor-pointer"
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-sm font-medium text-surface-700 dark:text-surface-300">{stage.name}</span>
-            <span className="text-sm font-semibold text-surface-900 dark:text-surface-100">{stage.count.toLocaleString()}</span>
+    <div className="space-y-3">
+      {stages.map((stage: any, i: number) => {
+        const percent = Math.round((stage.count / maxCount) * 100);
+
+        return (
+          <div key={stage.name} className="space-y-1.5 group">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-foreground flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: stage.color }} />
+                {stage.name}
+              </span>
+              <span className="font-mono font-bold text-muted-foreground">{stage.count.toLocaleString()} ({percent}%)</span>
+            </div>
+
+            <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${percent}%` }}
+                transition={{ delay: i * 0.05 + 0.1, duration: 0.5, ease: 'easeOut' }}
+                className="h-full rounded-full transition-all"
+                style={{ backgroundColor: stage.color }}
+              />
+            </div>
           </div>
-          <div className="h-7 bg-surface-100 dark:bg-surface-800 rounded-lg overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${(stage.count / maxCount) * 100}%` }}
-              transition={{ delay: i * 0.08 + 0.2, duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-              className="h-full rounded-lg transition-all duration-200 group-hover:brightness-110"
-              style={{ backgroundColor: stage.color }}
-            />
-          </div>
-        </motion.div>
-      ))}
+        );
+      })}
     </div>
   );
 };
 
-// ─── Activity Feed ─────────────────────────────────────────────
+// ─── shadcn Activity Feed ──────────────────────────────────────
 const ActivityFeed: React.FC<{ activities: any[] }> = ({ activities }) => {
   const getIcon = (action: string) => {
     switch (action) {
-      case 'create': return <CheckCircle2 className="w-4 h-4 text-success-500" />;
-      case 'allocation_run': return <Activity className="w-4 h-4 text-primary-500" />;
-      case 'override': return <AlertTriangle className="w-4 h-4 text-warning-500" />;
-      case 'review': return <ShieldAlert className="w-4 h-4 text-danger-500" />;
-      case 'reschedule': return <CalendarClock className="w-4 h-4 text-info-500" />;
-      default: return <Activity className="w-4 h-4 text-surface-400" />;
+      case 'create': return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+      case 'allocation_run': return <Shuffle className="w-4 h-4 text-indigo-500" />;
+      case 'override': return <AlertTriangle className="w-4 h-4 text-amber-500" />;
+      case 'review': return <ShieldAlert className="w-4 h-4 text-rose-500" />;
+      case 'reschedule': return <CalendarClock className="w-4 h-4 text-sky-500" />;
+      default: return <Activity className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
   return (
-    <div className="space-y-0">
+    <div className="divide-y divide-border -mx-6">
       {activities.map((log: any, i: number) => (
-        <motion.div
-          key={log.id}
-          initial={{ opacity: 0, x: 10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: i * 0.05, duration: 0.3 }}
-          className="flex items-start gap-3 px-4 py-3 hover:bg-surface-50 dark:hover:bg-surface-800/50 transition-colors rounded-lg"
+        <div
+          key={log.id || i}
+          className="flex items-start gap-3.5 px-6 py-3 hover:bg-muted/40 transition-colors"
         >
-          <div className="mt-0.5">{getIcon(log.action)}</div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm text-surface-700 dark:text-surface-300 line-clamp-2">{log.description}</div>
-            <div className="text-xs text-surface-400 mt-1">{new Date(log.createdAt).toLocaleString()}</div>
+          <div className="mt-0.5 p-1 rounded-md bg-muted flex items-center justify-center">
+            {getIcon(log.action)}
           </div>
-        </motion.div>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-semibold text-foreground line-clamp-2 leading-relaxed">
+              {log.description}
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+              {new Date(log.createdAt).toLocaleTimeString()} • {log.action.replace('_', ' ')}
+            </div>
+          </div>
+        </div>
       ))}
     </div>
   );
 };
 
-// ─── Main Dashboard ────────────────────────────────────────────
+// ─── Executive Dashboard ───────────────────────────────────────
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { data: dashboard, loading: dashLoading } = useApi(() => api.getDashboard());
@@ -123,153 +159,296 @@ export const Dashboard: React.FC = () => {
   const { data: activity } = useApi(() => api.getActivity());
 
   const d = dashboard || {};
-  const CHART_COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#06b6d4', '#22c55e', '#f59e0b'];
+  const CHART_COLORS = ['#6366f1', '#8b5cf6', '#a855f7', '#06b6d4', '#10b981', '#f59e0b'];
 
   if (dashLoading) {
     return (
-      <div className="p-6 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div className="p-6 space-y-6 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="glass-card p-5 space-y-3">
-              <div className="skeleton h-10 w-10 rounded-xl" />
-              <div className="skeleton h-8 w-24" />
-              <div className="skeleton h-4 w-32" />
-            </div>
+            <Card key={i} className="p-5 animate-pulse bg-muted/40 h-28" />
           ))}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="glass-card p-6"><div className="skeleton h-64 w-full rounded-lg" /></div>
-          <div className="glass-card p-6"><div className="skeleton h-64 w-full rounded-lg" /></div>
+          <Card className="p-6 animate-pulse bg-muted/40 h-72" />
+          <Card className="p-6 animate-pulse bg-muted/40 h-72" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="section-title">Command Center</h1>
-        <p className="text-surface-500 mt-1">Real-time overview of the 2026 placement season</p>
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Top Banner Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Executive Placement Command Center
+            </h1>
+            <Badge variant="brand" className="font-semibold text-xs">
+              Module A Enabled
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Real-time multi-company allocation, dynamic scheduling, and integrity monitoring for the 2026 Season.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="brand"
+            size="sm"
+            onClick={() => navigate('/allocation')}
+            className="flex items-center gap-2"
+          >
+            <Shuffle className="w-3.5 h-3.5" /> Execute Gale-Shapley
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/anomalies')}
+            className="flex items-center gap-2"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-rose-500" /> Proctor Anomaly Hub
+          </Button>
+        </div>
       </div>
 
-      {/* KPI Grid */}
-      <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        <KPICard title="Total Students" value={d.totalStudents || 0} icon={<Users className="w-5 h-5 text-primary-600" />} color="bg-primary-50 dark:bg-primary-900/20" onClick={() => navigate('/students')} />
-        <KPICard title="Active Companies" value={d.activeCompanies || 0} icon={<Building2 className="w-5 h-5 text-purple-600" />} color="bg-purple-50 dark:bg-purple-900/20" onClick={() => navigate('/companies')} />
-        <KPICard title="Students Placed" value={d.placedStudents || 0} icon={<GraduationCap className="w-5 h-5 text-success-600" />} color="bg-success-50 dark:bg-success-900/20" onClick={() => navigate('/analytics')} />
-        <KPICard title="Placement Rate" value={d.placementRate || 0} suffix="%" icon={<TrendingUp className="w-5 h-5 text-cyan-600" />} color="bg-cyan-50 dark:bg-cyan-900/20" format={(n) => n.toFixed(1)} />
-        <KPICard title="High-Risk Alerts" value={d.highRiskAlerts || 0} icon={<ShieldAlert className="w-5 h-5 text-danger-500" />} color="bg-danger-50 dark:bg-danger-900/20" onClick={() => navigate('/anomalies')} />
+      {/* Primary KPI Metrics Grid */}
+      <motion.div
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4"
+      >
+        <KPICard
+          title="Registered Students"
+          value={d.totalStudents || 0}
+          icon={<Users className="w-4 h-4 text-indigo-500" />}
+          iconBg="bg-indigo-500/10"
+          onClick={() => navigate('/students')}
+        />
+        <KPICard
+          title="Active Companies"
+          value={d.activeCompanies || 0}
+          icon={<Building2 className="w-4 h-4 text-purple-500" />}
+          iconBg="bg-purple-500/10"
+          onClick={() => navigate('/companies')}
+        />
+        <KPICard
+          title="Students Placed"
+          value={d.placedStudents || 0}
+          icon={<GraduationCap className="w-4 h-4 text-emerald-500" />}
+          iconBg="bg-emerald-500/10"
+          onClick={() => navigate('/analytics')}
+        />
+        <KPICard
+          title="Placement Rate"
+          value={d.placementRate || 0}
+          suffix="%"
+          icon={<TrendingUp className="w-4 h-4 text-cyan-500" />}
+          iconBg="bg-cyan-500/10"
+          format={(n) => n.toFixed(1)}
+        />
+        <KPICard
+          title="High-Risk Anomalies"
+          value={d.highRiskAlerts || 0}
+          icon={<ShieldAlert className="w-4 h-4 text-rose-500" />}
+          iconBg="bg-rose-500/10"
+          onClick={() => navigate('/anomalies')}
+        />
       </motion.div>
 
-      {/* Second Row KPIs */}
-      <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard title="Active Interviews" value={d.activeInterviews || 0} icon={<CalendarClock className="w-5 h-5 text-blue-600" />} color="bg-blue-50 dark:bg-blue-900/20" onClick={() => navigate('/scheduler')} />
-        <KPICard title="Pending Offers" value={d.pendingOffers || 0} icon={<Briefcase className="w-5 h-5 text-amber-600" />} color="bg-amber-50 dark:bg-amber-900/20" />
-        <KPICard title="Active Drives" value={d.activeDrives || 0} icon={<Megaphone className="w-5 h-5 text-rose-600" />} color="bg-rose-50 dark:bg-rose-900/20" onClick={() => navigate('/drives')} />
-        <KPICard title="Eligible Students" value={d.eligibleStudents || 0} icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />} color="bg-emerald-50 dark:bg-emerald-900/20" />
+      {/* Secondary Operational Metrics */}
+      <motion.div
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+      >
+        <KPICard
+          title="Live Interviews"
+          value={d.activeInterviews || 0}
+          icon={<CalendarClock className="w-4 h-4 text-sky-500" />}
+          iconBg="bg-sky-500/10"
+          onClick={() => navigate('/scheduler')}
+        />
+        <KPICard
+          title="Offers Extended"
+          value={d.pendingOffers || 0}
+          icon={<Briefcase className="w-4 h-4 text-amber-500" />}
+          iconBg="bg-amber-500/10"
+        />
+        <KPICard
+          title="Active Drives"
+          value={d.activeDrives || 0}
+          icon={<Megaphone className="w-4 h-4 text-rose-500" />}
+          iconBg="bg-rose-500/10"
+          onClick={() => navigate('/drives')}
+        />
+        <KPICard
+          title="Eligible Pool"
+          value={d.eligibleStudents || 0}
+          icon={<CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+          iconBg="bg-emerald-500/10"
+        />
       </motion.div>
 
-      {/* Charts Row */}
+      {/* Visual Analytics Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Hiring Funnel */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="glass-card p-6">
-          <h2 className="card-title mb-4">Hiring Funnel</h2>
-          {funnel?.stages && <FunnelChart stages={funnel.stages} />}
-        </motion.div>
+        {/* Recruitment Pipeline Funnel */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Recruitment Pipeline Funnel</CardTitle>
+                <CardDescription>Conversion rate across application, assessment, interview, and offer</CardDescription>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                Real-Time
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {funnel?.stages && <FunnelChart stages={funnel.stages} />}
+          </CardContent>
+        </Card>
 
-        {/* Department Placement */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card p-6">
-          <h2 className="card-title mb-4">Department-wise Placement</h2>
-          {placement?.departmentWise && (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={placement.departmentWise} barCategoryGap="20%">
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-surface-200)" />
-                <XAxis dataKey="department" tick={{ fontSize: 12 }} stroke="var(--color-surface-400)" />
-                <YAxis tick={{ fontSize: 12 }} stroke="var(--color-surface-400)" />
-                <Tooltip
-                  contentStyle={{ backgroundColor: 'var(--color-surface-50)', border: '1px solid var(--color-surface-200)', borderRadius: '8px', fontSize: '12px' }}
-                  formatter={(value: any, name?: any) => [value, name === 'placed' ? 'Placed' : 'Total']}
-                />
-                <Bar dataKey="total" fill="#c7d2fe" radius={[4, 4, 0, 0]} name="Total" />
-                <Bar dataKey="placed" fill="#6366f1" radius={[4, 4, 0, 0]} name="Placed" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </motion.div>
+        {/* Department-wise Allocation */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base">Department-Wise Placement Success</CardTitle>
+                <CardDescription>Placed candidates vs total registered cohort by engineering branch</CardDescription>
+              </div>
+              <Badge variant="outline" className="text-xs font-mono">
+                {placement?.departmentWise?.length || 6} Branches
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {placement?.departmentWise && (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={placement.departmentWise} barCategoryGap="20%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="department" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      borderColor: 'hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      color: 'hsl(var(--card-foreground))',
+                    }}
+                    formatter={(value: any, name?: any) => [value, name === 'placed' ? 'Placed' : 'Registered Cohort']}
+                  />
+                  <Bar dataKey="total" fill="#a5b4fc" radius={[4, 4, 0, 0]} name="Total" />
+                  <Bar dataKey="placed" fill="#6366f1" radius={[4, 4, 0, 0]} name="Placed" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Bottom Row */}
+      {/* Bottom Insights Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Package Distribution */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="glass-card p-6">
-          <h2 className="card-title mb-4">Package Distribution</h2>
-          {placement?.packageDistribution && (
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie
-                  data={placement.packageDistribution.filter((p: any) => p.count > 0)}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={85}
-                  innerRadius={55}
-                  dataKey="count"
-                  nameKey="range"
-                  paddingAngle={3}
-                  animationBegin={500}
-                  animationDuration={1000}
-                >
-                  {placement.packageDistribution.filter((p: any) => p.count > 0).map((_: any, i: number) => (
-                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(v: any, name?: any) => [v, name || '']} contentStyle={{ borderRadius: '8px', fontSize: '12px' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
-          <div className="flex flex-wrap gap-2 mt-2">
-            {placement?.packageDistribution?.filter((p: any) => p.count > 0).map((p: any, i: number) => (
-              <span key={p.range} className="badge badge-neutral text-xs">
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-                {p.range}: {p.count}
-              </span>
-            ))}
-          </div>
-        </motion.div>
+        {/* CTC Package Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">CTC Tier Distribution</CardTitle>
+            <CardDescription>Salary breakdown (LPA brackets)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {placement?.packageDistribution && (
+              <ResponsiveContainer width="100%" height={190}>
+                <PieChart>
+                  <Pie
+                    data={placement.packageDistribution.filter((p: any) => p.count > 0)}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={75}
+                    innerRadius={48}
+                    dataKey="count"
+                    nameKey="range"
+                    paddingAngle={3}
+                  >
+                    {placement.packageDistribution.filter((p: any) => p.count > 0).map((_: any, i: number) => (
+                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      borderColor: 'hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {placement?.packageDistribution?.filter((p: any) => p.count > 0).map((p: any, i: number) => (
+                <Badge key={p.range} variant="outline" className="text-[11px] gap-1.5 font-medium">
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                  {p.range}: <strong className="text-foreground">{p.count}</strong>
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Company Hiring */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="glass-card p-6">
-          <h2 className="card-title mb-4">Top Hiring Companies</h2>
-          {placement?.companyWise?.slice(0, 8).map((c: any, i: number) => (
-            <motion.div
-              key={c.company}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.6 + i * 0.05 }}
-              className="flex items-center justify-between py-2 border-b border-surface-100 dark:border-surface-800 last:border-0"
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md bg-primary-100 dark:bg-primary-900/20 flex items-center justify-center text-xs font-bold text-primary-700 dark:text-primary-400">
-                  {i + 1}
+        {/* Top Corporate Recruiters */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Top Hiring Partners</CardTitle>
+            <CardDescription>Highest volume offer extensions</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {placement?.companyWise?.slice(0, 7).map((c: any, i: number) => (
+              <div
+                key={c.company}
+                className="flex items-center justify-between py-1.5 border-b border-border/60 last:border-0 text-xs"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="w-5 h-5 rounded-md bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                    #{i + 1}
+                  </span>
+                  <span className="font-semibold text-foreground">{c.company}</span>
                 </div>
-                <span className="text-sm font-medium text-surface-700 dark:text-surface-300">{c.company}</span>
+                <Badge variant="secondary" className="font-mono font-bold text-xs">
+                  {c.hires} Hires
+                </Badge>
               </div>
-              <span className="text-sm font-semibold text-surface-900 dark:text-surface-100">{c.hires}</span>
-            </motion.div>
-          ))}
-        </motion.div>
+            ))}
+          </CardContent>
+        </Card>
 
-        {/* Live Activity Feed */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }} className="glass-card p-6">
-          <h2 className="card-title mb-4 flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-success-500 animate-pulse" />
-            Live Activity
-          </h2>
-          <div className="max-h-72 overflow-y-auto -mx-4">
-            {activity?.auditLogs && <ActivityFeed activities={activity.auditLogs} />}
-          </div>
-        </motion.div>
+        {/* Real-time System Audit Stream */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Live Activity Audit
+                </CardTitle>
+                <CardDescription>Instant event & audit log stream</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="max-h-72 overflow-y-auto px-6">
+              {activity?.auditLogs && <ActivityFeed activities={activity.auditLogs} />}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
 };
+export default Dashboard;

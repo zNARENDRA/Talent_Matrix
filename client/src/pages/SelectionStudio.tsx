@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Users, CheckCircle2, XCircle, Award, Sliders, Search, ArrowUpDown,
-  Filter, AlertCircle, History, RefreshCw, ChevronRight, UserCheck, Star
+  Users, CheckCircle2, XCircle, Award, Search,
+  Filter, History, RefreshCw, Star, ArrowRight, ShieldAlert, Sparkles
 } from 'lucide-react';
 import { api } from '../lib/api';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { Input } from '../components/ui/input';
+import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
+import {
+  Table, TableHeader, TableBody, TableHead, TableRow, TableCell
+} from '../components/ui/table';
+import { cn } from '../lib/utils';
 
 export const SelectionStudio: React.FC = () => {
   const [drives, setDrives] = useState<any[]>([]);
@@ -21,6 +30,7 @@ export const SelectionStudio: React.FC = () => {
   const [evalScore, setEvalScore] = useState<number>(85);
   const [evalNotes, setEvalNotes] = useState<string>('');
   const [submittingScore, setSubmittingScore] = useState<boolean>(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadDrives();
@@ -70,8 +80,6 @@ export const SelectionStudio: React.FC = () => {
       console.error('Failed to load selection logs:', err);
     }
   };
-
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const handleDecision = async (student: any, decision: string, reason?: string) => {
     const studentIdToPass = student.studentDbId || student.id || student.studentId;
@@ -140,133 +148,128 @@ export const SelectionStudio: React.FC = () => {
     return matchSearch && matchStatus;
   });
 
-  const getTierColor = (tier: string) => {
-    const t = tier?.toUpperCase() || '';
-    if (t.includes('DREAM') || t.includes('SUPER')) return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
-    if (t.includes('CORE')) return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
-    return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
-  };
-
   const getDecisionBadge = (decision: string, reason?: string) => {
     switch (decision) {
       case 'SELECTED':
-        return <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Selected (Ranked)</span>;
+        return <Badge variant="success">Selected (Ranked)</Badge>;
       case 'SHORTLISTED':
-        return <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">Shortlisted</span>;
+        return <Badge variant="info">Shortlisted</Badge>;
       case 'DESELECTED':
         return (
           <div className="flex flex-col items-start gap-0.5">
-            <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/30">Deselected</span>
-            {reason && <span className="text-[10px] text-zinc-400 tracking-tight">{reason.replace(/_/g, ' ')}</span>}
+            <Badge variant="destructive">Deselected</Badge>
+            {reason && <span className="text-[10px] text-muted-foreground">{reason.replace(/_/g, ' ')}</span>}
           </div>
         );
       case 'INELIGIBLE':
         return (
           <div className="flex flex-col items-start gap-0.5">
-            <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">Ineligible</span>
-            {reason && <span className="text-[10px] text-amber-500/80">{reason}</span>}
+            <Badge variant="warning">Ineligible</Badge>
+            {reason && <span className="text-[10px] text-amber-500">{reason}</span>}
           </div>
         );
       default:
-        return <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-zinc-500/10 text-zinc-400 border border-zinc-500/30">{decision}</span>;
+        return <Badge variant="outline">{decision}</Badge>;
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-white">Selection & Deselection Studio</h1>
-            <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
-              Module A
-            </span>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              Selection & Deselection Studio
+            </h1>
+            <Badge variant="brand" className="font-semibold text-xs">
+              Deterministic Roster
+            </Badge>
           </div>
-          <p className="text-sm text-zinc-400 mt-1">
-            Deterministic candidate scoring, transparent tie-breaking, shortlisting cutoffs, and audit-backed deselection tracking.
+          <p className="text-xs text-muted-foreground mt-1">
+            Transparent composite scoring, recruiter score adjustments, shortlisting cutoffs, and audit-backed deselection tracking.
           </p>
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex items-center gap-2 bg-zinc-900/80 p-1 rounded-xl border border-zinc-800">
-          <button
+        <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border">
+          <Button
+            variant={activeTab === 'candidates' ? 'default' : 'ghost'}
+            size="sm"
             onClick={() => setActiveTab('candidates')}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-medium rounded-lg transition-all ${
-              activeTab === 'candidates' ? 'bg-indigo-600 text-white shadow-lg' : 'text-zinc-400 hover:text-white'
-            }`}
+            className="text-xs font-semibold"
           >
-            <Users className="w-4 h-4" />
-            Candidate Roster
-          </button>
-          <button
+            <Users className="w-3.5 h-3.5 mr-1.5" /> Candidate Roster
+          </Button>
+          <Button
+            variant={activeTab === 'logs' ? 'default' : 'ghost'}
+            size="sm"
             onClick={() => setActiveTab('logs')}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-medium rounded-lg transition-all ${
-              activeTab === 'logs' ? 'bg-indigo-600 text-white shadow-lg' : 'text-zinc-400 hover:text-white'
-            }`}
+            className="text-xs font-semibold"
           >
-            <History className="w-4 h-4" />
-            Deselection Audit Log ({logs.length})
-          </button>
+            <History className="w-3.5 h-3.5 mr-1.5" /> Audit Log ({logs.length})
+          </Button>
         </div>
       </div>
 
       {activeTab === 'candidates' ? (
         <>
-          {/* Drive Selector Bar */}
-          <div className="bg-zinc-900/60 backdrop-blur-xl border border-zinc-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1 min-w-[280px]">
-              <label className="text-xs font-medium text-zinc-400 whitespace-nowrap">Target Recruitment Drive:</label>
-              <select
-                value={selectedDriveId}
-                onChange={(e) => setSelectedDriveId(e.target.value)}
-                className="w-full bg-zinc-800/80 border border-zinc-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
-              >
-                {drives.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.company?.name || d.companyName} — {d.role} ({d.packageLpa} LPA, {d.offerTier})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {driveData && (
-              <div className="flex items-center gap-4 text-xs">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700">
-                  <Award className="w-3.5 h-3.5 text-indigo-400" />
-                  <span className="text-zinc-400">Open Quota:</span>
-                  <span className="font-bold text-white">{driveData.quota} seats</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700">
-                  <span className="text-zinc-400">Min GPA Cutoff:</span>
-                  <span className="font-bold text-white">{driveData.minGpa}</span>
-                </div>
-                <span className={`px-3 py-1 text-xs font-semibold rounded-lg border ${getTierColor(driveData.tier)}`}>
-                  {driveData.tier} TIER
-                </span>
+          {/* Target Recruitment Drive Selector Card */}
+          <Card>
+            <CardContent className="p-4 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+                  Recruitment Drive:
+                </label>
+                <select
+                  value={selectedDriveId}
+                  onChange={(e) => setSelectedDriveId(e.target.value)}
+                  className="w-full bg-background border border-border rounded-lg px-3 py-1.5 text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  {drives.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.company?.name || d.companyName} — {d.role} (₹{d.packageLpa} LPA, {d.offerTier})
+                    </option>
+                  ))}
+                </select>
               </div>
-            )}
-          </div>
 
-          {/* Filter & Search Bar */}
+              {driveData && (
+                <div className="flex items-center gap-3 text-xs">
+                  <Badge variant="outline" className="gap-1.5 font-mono">
+                    <Award className="w-3.5 h-3.5 text-indigo-500" />
+                    Quota: <strong className="text-foreground">{driveData.quota}</strong> seats
+                  </Badge>
+                  <Badge variant="outline" className="font-mono">
+                    Min GPA: <strong className="text-foreground">{driveData.minGpa}</strong>
+                  </Badge>
+                  <Badge variant="brand" className="uppercase font-mono">
+                    {driveData.tier} Tier
+                  </Badge>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Search & Filter Bar */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="relative w-full sm:w-80">
-              <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-3" />
-              <input
+              <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-2.5" />
+              <Input
                 type="text"
-                placeholder="Search candidate name, STU ID, dept..."
+                placeholder="Search candidate name, ID, dept..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                className="pl-9 text-xs"
               />
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Filter className="w-4 h-4 text-zinc-400" />
+              <Filter className="w-4 h-4 text-muted-foreground" />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                className="bg-background border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 <option value="all">All Decision Statuses</option>
                 <option value="SELECTED">Selected</option>
@@ -274,234 +277,245 @@ export const SelectionStudio: React.FC = () => {
                 <option value="DESELECTED">Deselected</option>
                 <option value="INELIGIBLE">Ineligible</option>
               </select>
-              <button
+              <Button
+                variant="outline"
+                size="iconSm"
                 onClick={() => loadDriveCandidates(selectedDriveId)}
-                className="p-2 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white"
                 title="Refresh Candidates"
               >
-                <RefreshCw className="w-4 h-4" />
-              </button>
+                <RefreshCw className="w-3.5 h-3.5" />
+              </Button>
             </div>
           </div>
 
           {/* Candidate Evaluation Table */}
-          <div className="bg-zinc-900/60 backdrop-blur-xl border border-zinc-800 rounded-2xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-zinc-300">
-                <thead className="bg-zinc-800/60 text-xs font-semibold uppercase text-zinc-400 border-b border-zinc-800">
-                  <tr>
-                    <th className="px-4 py-3 text-center">Rank</th>
-                    <th className="px-4 py-3">Candidate</th>
-                    <th className="px-4 py-3">Dept & GPA</th>
-                    <th className="px-4 py-3">Skill Match</th>
-                    <th className="px-4 py-3">Recruiter Score</th>
-                    <th className="px-4 py-3">Composite</th>
-                    <th className="px-4 py-3">Decision</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800/60">
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-center w-16">Rank</TableHead>
+                    <TableHead>Candidate</TableHead>
+                    <TableHead>Dept & GPA</TableHead>
+                    <TableHead>Skill Match</TableHead>
+                    <TableHead>Recruiter Score</TableHead>
+                    <TableHead>Composite</TableHead>
+                    <TableHead>Decision</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {loading ? (
-                    <tr>
-                      <td colSpan={8} className="text-center py-12 text-zinc-500">
-                        <div className="inline-flex items-center gap-2">
-                          <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                        <div className="inline-flex items-center gap-2 text-xs">
+                          <RefreshCw className="w-4 h-4 animate-spin text-primary" />
                           Evaluating applicants with deterministic formula...
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : filteredCandidates.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="text-center py-12 text-zinc-500">
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-12 text-muted-foreground text-xs">
                         No candidate applications found matching current criteria.
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     filteredCandidates.map((c) => (
-                      <tr key={c.studentId} className="hover:bg-zinc-800/30 transition-colors">
-                        <td className="px-4 py-3 text-center font-bold text-zinc-400">
+                      <TableRow key={c.studentId}>
+                        <TableCell className="text-center font-bold font-mono text-muted-foreground text-xs">
                           {c.rank <= 999 ? `#${c.rank}` : '—'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="font-medium text-white">{c.studentName}</div>
-                          <div className="text-xs text-zinc-500 font-mono">{c.studentId}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="text-zinc-300">{c.department}</div>
-                          <div className="text-xs font-semibold text-indigo-400">{c.gpa.toFixed(2)} GPA</div>
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-bold text-foreground">{c.studentName}</div>
+                          <div className="text-[10px] text-muted-foreground font-mono">{c.studentId}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-xs text-foreground font-medium">{c.department}</div>
+                          <div className="text-[11px] font-bold text-indigo-500 font-mono">{c.gpa.toFixed(2)} GPA</div>
+                        </TableCell>
+                        <TableCell>
                           <div className="flex items-center gap-2">
-                            <div className="w-16 bg-zinc-800 rounded-full h-2 overflow-hidden">
+                            <div className="w-16 bg-secondary rounded-full h-1.5 overflow-hidden">
                               <div
-                                className={`h-full ${
-                                  c.skillScore >= 80 ? 'bg-emerald-500' : c.skillScore >= 60 ? 'bg-blue-500' : 'bg-amber-500'
-                                }`}
+                                className={cn(
+                                  'h-full rounded-full',
+                                  c.skillScore >= 80 ? 'bg-emerald-500' : c.skillScore >= 60 ? 'bg-indigo-500' : 'bg-amber-500'
+                                )}
                                 style={{ width: `${c.skillScore}%` }}
                               />
                             </div>
-                            <span className="font-bold text-xs text-zinc-200">{c.skillScore}%</span>
+                            <span className="font-mono font-bold text-xs text-foreground">{c.skillScore}%</span>
                           </div>
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell>
                           <div className="flex items-center gap-1.5">
-                            <span className="font-semibold text-white">{c.recruiterScore || '—'}</span>
-                            <button
+                            <span className="font-bold font-mono text-foreground text-xs">{c.recruiterScore || '—'}</span>
+                            <Button
+                              variant="link"
+                              size="sm"
                               onClick={() => {
                                 setScoringCandidate(c);
                                 setEvalScore(c.recruiterScore || 80);
                               }}
-                              className="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2 ml-1"
+                              className="h-auto p-0 text-[11px] font-semibold text-primary ml-1"
                             >
                               Edit
-                            </button>
+                            </Button>
                           </div>
-                        </td>
-                        <td className="px-4 py-3 font-mono font-bold text-emerald-400">
+                        </TableCell>
+                        <TableCell className="font-mono font-extrabold text-emerald-500 text-xs">
                           {c.compositeScore?.toFixed(1) || '—'}
-                        </td>
-                        <td className="px-4 py-3">
+                        </TableCell>
+                        <TableCell>
                           {getDecisionBadge(c.decision, c.deselectionReason)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant={c.decision === 'SELECTED' ? 'success' : 'outline'}
+                              size="iconSm"
                               onClick={() => handleDecision(c, 'SELECTED')}
                               disabled={updatingId === (c.studentDbId || c.studentId)}
-                              className={`p-2 rounded-xl transition-all flex items-center justify-center ${
-                                c.decision === 'SELECTED'
-                                  ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-105'
-                                  : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 hover:scale-105'
-                              }`}
-                              title="Approve / Select Candidate"
+                              title="Select Candidate"
+                              className={cn(
+                                c.decision === 'SELECTED' ? 'bg-emerald-600 text-white' : 'hover:border-emerald-500 hover:text-emerald-500'
+                              )}
                             >
-                              <CheckCircle2 className="w-4 h-4" />
-                            </button>
-                            <button
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant={c.decision === 'DESELECTED' ? 'destructive' : 'outline'}
+                              size="iconSm"
                               onClick={() => handleDecision(c, 'DESELECTED', 'TPO_MANUAL_OVERRIDE')}
                               disabled={updatingId === (c.studentDbId || c.studentId)}
-                              className={`p-2 rounded-xl transition-all flex items-center justify-center ${
-                                c.decision === 'DESELECTED'
-                                  ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30 scale-105'
-                                  : 'bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/30 hover:scale-105'
-                              }`}
-                              title="Deselect / Reject Candidate"
+                              title="Deselect Candidate"
+                              className={cn(
+                                c.decision === 'DESELECTED' ? 'bg-rose-600 text-white' : 'hover:border-rose-500 hover:text-rose-500'
+                              )}
                             >
-                              <XCircle className="w-4 h-4" />
-                            </button>
+                              <XCircle className="w-3.5 h-3.5" />
+                            </Button>
                           </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))
                   )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </>
       ) : (
         /* Deselection Audit Log View */
-        <div className="bg-zinc-900/60 backdrop-blur-xl border border-zinc-800 rounded-2xl p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-semibold text-white flex items-center gap-2">
-              <History className="w-4 h-4 text-indigo-400" />
-              Candidate Decision & Deselection Audit Trail
-            </h3>
-            <span className="text-xs text-zinc-400">{logs.length} logged events</span>
-          </div>
-
-          <div className="divide-y divide-zinc-800">
-            {logs.length === 0 ? (
-              <p className="text-sm text-zinc-500 py-8 text-center">No selection logs recorded yet.</p>
-            ) : (
-              logs.map((log) => (
-                <div key={log.id} className="py-3 flex items-center justify-between gap-4 text-sm">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-2 h-2 rounded-full ${
-                        log.decision === 'SELECTED'
-                          ? 'bg-emerald-400'
-                          : log.decision === 'DESELECTED'
-                          ? 'bg-rose-400'
-                          : 'bg-indigo-400'
-                      }`}
-                    />
-                    <div>
-                      <span className="font-semibold text-white">{log.student?.name || log.studentId}</span>
-                      <span className="text-xs text-zinc-400 ml-2">({log.student?.studentId || log.studentId})</span>
-                      <p className="text-xs text-zinc-400">
-                        {log.drive?.company?.name} — {log.drive?.role} | Decision: <strong className="text-zinc-200">{log.decision}</strong> ({log.reason || 'None'})
-                      </p>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <History className="w-4 h-4 text-indigo-500" />
+                  Candidate Decision & Deselection Audit Trail
+                </CardTitle>
+                <CardDescription>Full record of algorithmic scoring and manual administrative overrides</CardDescription>
+              </div>
+              <Badge variant="outline" className="text-xs font-mono">
+                {logs.length} logged events
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-border px-6">
+              {logs.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-8 text-center">No selection logs recorded yet.</p>
+              ) : (
+                logs.map((log) => (
+                  <div key={log.id} className="py-3 flex items-center justify-between gap-4 text-xs">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={cn(
+                          'w-2 h-2 rounded-full',
+                          log.decision === 'SELECTED'
+                            ? 'bg-emerald-500'
+                            : log.decision === 'DESELECTED'
+                            ? 'bg-rose-500'
+                            : 'bg-indigo-500'
+                        )}
+                      />
+                      <div>
+                        <span className="font-bold text-foreground">{log.student?.name || log.studentId}</span>
+                        <span className="text-[11px] text-muted-foreground ml-2 font-mono">({log.student?.studentId || log.studentId})</span>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {log.drive?.company?.name} — {log.drive?.role} | Decision: <strong className="text-foreground font-semibold">{log.decision}</strong> ({log.reason || 'None'})
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant="secondary" className="font-mono text-[10px]">
+                        {log.source || 'SYSTEM'}
+                      </Badge>
+                      <p className="text-[10px] text-muted-foreground mt-1 font-mono">{new Date(log.createdAt).toLocaleTimeString()}</p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-zinc-300 border border-zinc-700">
-                      {log.source || 'SYSTEM'}
-                    </span>
-                    <p className="text-[10px] text-zinc-500 mt-1">{new Date(log.createdAt).toLocaleTimeString()}</p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Recruiter Scoring Modal */}
-      {scoringCandidate && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
-            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-              <Star className="w-5 h-5 text-amber-400" />
-              Recruiter Evaluation: {scoringCandidate.studentName}
-            </h3>
-            <p className="text-xs text-zinc-400">
-              Update recruiter evaluation score for {driveData?.companyName} ({driveData?.role}).
-            </p>
+      <Dialog open={!!scoringCandidate} onOpenChange={(open) => !open && setScoringCandidate(null)}>
+        {scoringCandidate && (
+          <div>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <Star className="w-5 h-5 text-amber-500" />
+                Recruiter Evaluation: {scoringCandidate.studentName}
+              </DialogTitle>
+              <DialogDescription>
+                Adjust evaluator score for {driveData?.companyName} ({driveData?.role}).
+              </DialogDescription>
+            </DialogHeader>
 
-            <div className="space-y-3">
+            <div className="space-y-4 my-4">
               <div>
-                <label className="text-xs font-semibold text-zinc-300">Score (0 - 100): {evalScore}</label>
+                <div className="flex items-center justify-between text-xs font-semibold mb-1">
+                  <span className="text-foreground">Recruiter Score (0 - 100)</span>
+                  <span className="text-primary font-mono text-sm font-bold">{evalScore}/100</span>
+                </div>
                 <input
                   type="range"
                   min="0"
                   max="100"
                   value={evalScore}
                   onChange={(e) => setEvalScore(Number(e.target.value))}
-                  className="w-full mt-1 accent-indigo-500"
+                  className="w-full accent-primary h-2 bg-secondary rounded-lg"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-zinc-300">Review Notes</label>
+                <label className="text-xs font-semibold text-foreground block mb-1">Evaluation & Feedback Notes</label>
                 <textarea
                   value={evalNotes}
                   onChange={(e) => setEvalNotes(e.target.value)}
-                  placeholder="Strong DSA skills, clear communication in round 1..."
+                  placeholder="Exceptional data structure foundations, strong communication..."
                   rows={3}
-                  className="w-full mt-1 bg-zinc-800 border border-zinc-700 rounded-xl p-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-background border border-border rounded-lg p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                onClick={() => setScoringCandidate(null)}
-                className="px-4 py-2 rounded-xl bg-zinc-800 text-zinc-400 hover:text-white text-xs font-semibold"
-              >
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setScoringCandidate(null)} size="sm">
                 Cancel
-              </button>
-              <button
-                onClick={handleScoreSubmit}
-                disabled={submittingScore}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-all shadow-lg"
-              >
+              </Button>
+              <Button onClick={handleScoreSubmit} disabled={submittingScore} size="sm" variant="brand">
                 {submittingScore ? 'Saving...' : 'Save Evaluation'}
-              </button>
-            </div>
+              </Button>
+            </DialogFooter>
           </div>
-        </div>
-      )}
+        )}
+      </Dialog>
     </div>
   );
 };

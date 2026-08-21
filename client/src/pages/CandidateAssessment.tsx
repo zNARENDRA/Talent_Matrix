@@ -9,6 +9,11 @@ import {
   RefreshCw, Terminal, ExternalLink, Camera, CameraOff, Video,
   Maximize2, Minimize2, UserCheck, AlertCircle, Scan, Users, Loader2
 } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { Progress } from '../components/ui/avatar';
+import { cn } from '../lib/utils';
 
 const INITIAL_CODE = `// TalentMatrix Proctored Assessment Sandbox
 // Problem: Longest Substring Without Repeating Characters
@@ -79,172 +84,151 @@ export const CandidateAssessment: React.FC = () => {
         authenticityScore: data.authenticityScore,
         riskLevel: data.riskLevel,
       }));
+      logLocalTelemetry('score_update', `Auth Score: ${data.authenticityScore}% (${data.riskLevel})`);
+    });
+
+    socket.on('alert:created', (alert: any) => {
+      logLocalTelemetry('anomaly_alert', `Risk Alert: ${alert.description}`);
     });
 
     return () => {
       socket.emit('leave:session', currentSession.id);
-      socket.off('score:update');
     };
   }, [currentSession?.id]);
 
-  // 3. Tab Visibility & Blur Telemetry Listeners
+  // 3. Tab-blur tracking
   useEffect(() => {
-    if (!currentSession) return;
-
     const handleBlur = () => {
       blurStartTimeRef.current = Date.now();
-      logLocalTelemetry('tab_blur', 'Window defocused / tab switched');
+      logLocalTelemetry('tab_blur', 'Window focus lost (Candidate navigated away)');
     };
 
     const handleFocus = () => {
-      if (blurStartTimeRef.current) {
+      if (blurStartTimeRef.current && currentSession) {
         const durationSec = Math.round((Date.now() - blurStartTimeRef.current) / 1000);
         blurStartTimeRef.current = null;
-        logLocalTelemetry('tab_focus', `Returned to window after ${durationSec}s`);
+        logLocalTelemetry('tab_focus', `Window focus regained after ${durationSec}s`);
 
-        // Send real telemetry event to backend
         api.sendTelemetryEvent(currentSession.id, {
           eventType: 'tab_blur',
-          data: { duration: durationSec, timestamp: new Date().toISOString() },
+          data: { durationSec, timestamp: new Date().toISOString() },
         }).catch(console.error);
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        handleBlur();
-      } else {
-        handleFocus();
       }
     };
 
     window.addEventListener('blur', handleBlur);
     window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [currentSession?.id]);
 
-  // 4. Pre-load MediaPipe Face Detection ML Model
+  // 4. Initialize MediaPipe Face Detector model
   useEffect(() => {
-    initFaceDetector()
-      .then(() => {
+    let isMounted = true;
+    initFaceDetector().then((ok) => {
+      if (isMounted && ok) {
         setModelReady(true);
-        logLocalTelemetry('ai_model', '✅ MediaPipe BlazeFace model loaded — real-time face detection active');
-      })
-      .catch((err) => {
-        console.warn('Face detector model failed to load:', err);
-        logLocalTelemetry('ai_model', '⚠️ Face detection model loading (may take a moment on slow connections)');
-      });
-  }, []);
+      }
+    }).catch(console.error);
 
-  // 5. Initialize & Maintain Webcam Proctoring Stream
-  useEffect(() => {
-    startWebcam();
     return () => {
+      isMounted = false;
       stopWebcam();
     };
   }, []);
 
-  const startWebcam = async () => {
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 320 }, height: { ideal: 240 }, facingMode: 'user' },
-          audio: false,
-        });
-
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(() => {});
-        }
-        setCameraActive(true);
-        setCameraPermission('granted');
-        setCameraStatus('face_locked');
-        logLocalTelemetry('webcam', 'Visual proctoring camera stream connected');
-      } else {
-        setCameraPermission('denied');
-      }
-    } catch (err: any) {
-      console.warn('Webcam access error:', err.message);
-      setCameraPermission('denied');
-      setCameraActive(false);
-    }
-  };
-
-  const stopWebcam = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    setCameraActive(false);
-  };
-
-  // 6. Face Detection via MediaPipe BlazeFace ML Model
-  const performFaceScan = async (): Promise<FaceDetectionResult> => {
-    if (!videoRef.current || !canvasRef.current) {
-      return { status: 'face_locked', faceCount: 1, confidence: 90, message: 'Calibrating camera...' };
-    }
-    return detectFaces(videoRef.current, canvasRef.current);
-  };
-
-  // Continuous Periodic Visual Integrity Analysis (every 3 seconds)
+  // Continuous background vision loop (every 3 seconds)
   useEffect(() => {
-    if (!cameraActive || !currentSession || !modelReady) return;
+    if (!cameraActive || !currentSession) return;
 
     const interval = setInterval(async () => {
-      const result = await performFaceScan();
-      setFaceConfidence(result.confidence);
-      setDetectedFacesCount(result.faceCount);
+      if (videoRef.current && videoRef.current.readyState >= 2) {
+        const result: FaceDetectionResult = await detectFaces(videoRef.current, canvasRef.current || undefined);
+        setFaceConfidence(result.confidence);
+        setDetectedFacesCount(result.faceCount);
+        setCameraStatus(result.status);
 
-      if (result.status === 'multiple_faces') {
-        if (cameraStatus !== 'multiple_faces') {
-          setCameraStatus('multiple_faces');
-          logLocalTelemetry('webcam_multiple_faces', `⚠️ Multiple people detected in frame (${result.faceCount} faces)`);
+        if (result.status === 'multiple_faces') {
           api.sendTelemetryEvent(currentSession.id, {
             eventType: 'webcam_multiple_faces',
-            data: { faceCount: result.faceCount, timestamp: new Date().toISOString() },
+            data: {
+              faceCount: result.faceCount,
+              confidence: result.confidence,
+              timestamp: new Date().toISOString(),
+            },
           }).catch(console.error);
-        }
-      } else if (result.status === 'face_absent') {
-        if (cameraStatus !== 'face_absent') {
-          setCameraStatus('face_absent');
-          logLocalTelemetry('webcam_face_absence', '⚠️ Candidate face absent from camera frame');
+        } else if (result.status === 'face_absent') {
           api.sendTelemetryEvent(currentSession.id, {
             eventType: 'webcam_face_absence',
-            data: { reason: 'face_not_in_view', timestamp: new Date().toISOString() },
+            data: {
+              durationSec: 3,
+              confidence: 0,
+              timestamp: new Date().toISOString(),
+            },
           }).catch(console.error);
-        }
-      } else if (result.status === 'camera_blocked') {
-        if (cameraStatus !== 'camera_blocked') {
-          setCameraStatus('camera_blocked');
-          logLocalTelemetry('webcam_blocked', '⚠️ Camera covered or pitch black stream detected');
+        } else if (result.status === 'camera_blocked') {
           api.sendTelemetryEvent(currentSession.id, {
             eventType: 'webcam_blocked',
-            data: { reason: 'lens_covered', timestamp: new Date().toISOString() },
+            data: {
+              timestamp: new Date().toISOString(),
+            },
           }).catch(console.error);
-        }
-      } else {
-        if (cameraStatus !== 'face_locked') {
-          setCameraStatus('face_locked');
-          logLocalTelemetry('webcam', `Live Face verified & locked (${result.confidence}% confidence)`);
         }
       }
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [cameraActive, currentSession?.id, cameraStatus, modelReady]);
+  }, [cameraActive, currentSession?.id]);
 
-  // Live Manual Face Scan Trigger
+  const startWebcam = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play().catch(console.error);
+        };
+      }
+      setCameraActive(true);
+      setCameraPermission('granted');
+      setCameraStatus('face_locked');
+      logLocalTelemetry('webcam_started', 'Continuous video proctor stream active (MediaPipe BlazeFace)');
+    } catch (err: any) {
+      console.error('Webcam permission error:', err);
+      setCameraPermission('denied');
+      setCameraActive(false);
+      alert('Camera access was denied. Please allow camera permissions to enable automated visual proctoring.');
+    }
+  };
+
+  const stopWebcam = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setCameraActive(false);
+    logLocalTelemetry('webcam_stopped', 'Webcam proctor stream disconnected');
+  };
+
   const handleScanFaceNow = async () => {
+    if (!videoRef.current || !cameraActive) {
+      alert('Please start the camera before triggering a face scan.');
+      return;
+    }
+
     setIsScanningFace(true);
     try {
-      const result = await performFaceScan();
+      const result: FaceDetectionResult = await detectFaces(videoRef.current, canvasRef.current || undefined);
       setFaceConfidence(result.confidence);
       setDetectedFacesCount(result.faceCount);
       setCameraStatus(result.status);
@@ -267,7 +251,6 @@ export const CandidateAssessment: React.FC = () => {
     }
   };
 
-  // Demo Simulation Action
   const handleSimulateAbsenceForDemo = () => {
     if (!currentSession) return;
     setCameraStatus('face_absent');
@@ -289,7 +272,6 @@ export const CandidateAssessment: React.FC = () => {
     ]);
   };
 
-  // Keystrokes
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const now = Date.now();
     const flightTimeMs = now - lastKeyTimeRef.current;
@@ -303,7 +285,6 @@ export const CandidateAssessment: React.FC = () => {
     }
   };
 
-  // Pastes
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const pastedText = e.clipboardData.getData('text');
     const size = pastedText.length;
@@ -319,13 +300,11 @@ export const CandidateAssessment: React.FC = () => {
     }
   };
 
-  // Test Code
   const handleRunCode = () => {
     logLocalTelemetry('run_code', 'Executed test suite');
     setConsoleOutput(`Running Test Cases...\n✔ Test Case 1: lengthOfLongestSubstring("abcabcbb") === 3 (PASSED)\n✔ Test Case 2: lengthOfLongestSubstring("bbbbb") === 1 (PASSED)\n✔ Test Case 3: lengthOfLongestSubstring("pwwkew") === 3 (PASSED)\n\nAll 3 unit test cases passed successfully!`);
   };
 
-  // Submit
   const handleSubmit = async () => {
     if (!currentSession) return;
     setIsSubmitting(true);
@@ -343,7 +322,6 @@ export const CandidateAssessment: React.FC = () => {
     }
   };
 
-  // Fresh Session
   const handleCreateNewSession = async () => {
     try {
       const studentRes = await api.getStudents({ limit: '1' });
@@ -370,199 +348,214 @@ export const CandidateAssessment: React.FC = () => {
       <canvas ref={canvasRef} className="hidden" />
 
       {/* Top Banner */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="section-title flex items-center gap-2">
-              <Terminal className="w-6 h-6 text-primary-600" />
+            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <Terminal className="w-6 h-6 text-primary" />
               Proctored Coding Assessment Sandbox
             </h1>
-            <span className="badge badge-primary text-xs">Live Telemetry &amp; AI Proctor</span>
+            <Badge variant="brand" className="font-semibold text-xs">
+              Live Telemetry &amp; AI Vision
+            </Badge>
           </div>
-          <p className="text-surface-500 text-xs mt-1">
-            Real-time biometric keystroke capture, Shannon entropy analysis, window focus logging &amp; live webcam computer vision
+          <p className="text-xs text-muted-foreground mt-1">
+            Real-time biometric keystroke capture, Shannon entropy analysis, window focus logging &amp; MediaPipe BlazeFace ML face detection.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleCreateNewSession}
-            className="btn-secondary text-xs flex items-center gap-1.5"
+            className="text-xs font-semibold"
           >
-            <RefreshCw className="w-3.5 h-3.5" /> Start New Assessment Session
-          </button>
-          <a
-            href="/anomalies"
-            target="_blank"
-            rel="noreferrer"
-            className="btn-primary text-xs flex items-center gap-1.5"
+            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Start New Session
+          </Button>
+          <Button
+            variant="brand"
+            size="sm"
+            onClick={() => window.open('/anomalies', '_blank')}
+            className="text-xs font-semibold shadow-sm"
           >
-            <ExternalLink className="w-3.5 h-3.5" /> Open Proctor Anomaly Command Room
-          </a>
+            <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> Proctor Anomaly Hub
+          </Button>
         </div>
       </div>
 
       {/* Status & Telemetry Header Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="glass-card p-4 flex items-center justify-between">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-4 flex items-center justify-between">
           <div>
-            <div className="text-xs text-surface-400 font-semibold uppercase">Candidate Session</div>
-            <div className="text-sm font-bold text-surface-900 dark:text-white mt-0.5">
+            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Candidate Session</div>
+            <div className="text-sm font-bold text-foreground mt-0.5">
               {currentSession?.student?.name || 'Aarav Sharma'}
             </div>
-            <div className="text-[11px] text-surface-500 font-mono">{currentSession?.student?.studentId || 'STU1001'}</div>
+            <div className="text-[11px] text-muted-foreground font-mono">{currentSession?.student?.studentId || 'STU1001'}</div>
           </div>
-          <ShieldCheck className="w-8 h-8 text-primary-500/40" />
-        </div>
+          <ShieldCheck className="w-8 h-8 text-primary/30" />
+        </Card>
 
-        <div className="glass-card p-4 flex items-center justify-between">
+        <Card className="p-4 flex items-center justify-between">
           <div>
-            <div className="text-xs text-surface-400 font-semibold uppercase">Code Authenticity Score</div>
-            <div className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
+            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Authenticity Score</div>
+            <div className="text-2xl font-extrabold font-mono text-emerald-500 mt-0.5">
               {currentSession?.authenticityScore ?? 100}%
             </div>
-            <div className="text-[11px] text-surface-500">Live Continuous Evaluation</div>
+            <div className="text-[11px] text-muted-foreground font-medium">Continuous Evaluation</div>
           </div>
-          <Sparkles className="w-8 h-8 text-emerald-500/40" />
-        </div>
+          <Sparkles className="w-8 h-8 text-emerald-500/30" />
+        </Card>
 
-        <div className="glass-card p-4 flex items-center justify-between">
+        <Card className="p-4 flex items-center justify-between">
           <div>
-            <div className="text-xs text-surface-400 font-semibold uppercase">Integrity Risk Level</div>
-            <div className="text-sm font-bold uppercase mt-0.5 text-surface-900 dark:text-white">
-              <span
-                className={`badge text-xs uppercase ${
+            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Integrity Risk Level</div>
+            <div className="mt-1">
+              <Badge
+                variant={
                   currentSession?.riskLevel === 'high' || currentSession?.riskLevel === 'critical'
-                    ? 'badge-danger'
+                    ? 'destructive'
                     : currentSession?.riskLevel === 'moderate'
-                    ? 'badge-warning'
-                    : 'badge-success'
-                }`}
+                    ? 'warning'
+                    : 'success'
+                }
+                className="text-xs uppercase font-bold"
               >
                 {currentSession?.riskLevel || 'normal'}
-              </span>
+              </Badge>
             </div>
-            <div className="text-[11px] text-surface-500">Heuristic Anomaly Detector</div>
+            <div className="text-[11px] text-muted-foreground font-medium mt-0.5">Heuristic Detector</div>
           </div>
-          <ShieldAlert className="w-8 h-8 text-indigo-500/40" />
-        </div>
+          <ShieldAlert className="w-8 h-8 text-indigo-500/30" />
+        </Card>
 
         {/* Live Webcam Proctoring Status */}
-        <div className="glass-card p-4 flex items-center justify-between">
+        <Card className="p-4 flex items-center justify-between">
           <div>
-            <div className="text-xs text-surface-400 font-semibold uppercase">Webcam Visual Proctor</div>
-            <div className="text-sm font-bold text-surface-900 dark:text-white mt-0.5 flex items-center gap-1.5">
+            <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Webcam Proctor</div>
+            <div className="text-sm font-bold text-foreground mt-1 flex items-center gap-1.5">
               {!modelReady ? (
-                <span className="flex items-center gap-1 text-xs font-semibold text-cyan-500">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading AI Model...
+                <span className="flex items-center gap-1 text-xs font-semibold text-sky-500">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading Model...
                 </span>
               ) : cameraActive ? (
-                <span className={`flex items-center gap-1 text-xs font-semibold ${
-                  cameraStatus === 'face_locked'
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : cameraStatus === 'multiple_faces'
-                    ? 'text-rose-500 animate-pulse'
-                    : cameraStatus === 'camera_blocked'
-                    ? 'text-rose-500'
-                    : 'text-amber-500'
-                }`}>
-                  <span className={`w-2 h-2 rounded-full ${
-                    cameraStatus === 'face_locked' ? 'bg-emerald-500' : 'bg-rose-500'
-                  } animate-pulse`} />
+                <span
+                  className={cn(
+                    'flex items-center gap-1.5 text-xs font-bold',
+                    cameraStatus === 'face_locked'
+                      ? 'text-emerald-500'
+                      : cameraStatus === 'multiple_faces'
+                      ? 'text-rose-500 animate-pulse'
+                      : cameraStatus === 'camera_blocked'
+                      ? 'text-rose-500'
+                      : 'text-amber-500'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'w-2 h-2 rounded-full',
+                      cameraStatus === 'face_locked' ? 'bg-emerald-500' : 'bg-rose-500'
+                    )}
+                  />
                   {cameraStatus === 'face_locked'
                     ? `1 Face Locked (${faceConfidence}%)`
                     : cameraStatus === 'multiple_faces'
-                    ? `⚠️ ${detectedFacesCount} Faces Detected!`
+                    ? `⚠️ ${detectedFacesCount} Faces`
                     : cameraStatus === 'camera_blocked'
-                    ? 'Camera Obstructed'
-                    : '⚠️ No Face Detected'}
+                    ? 'Obstructed'
+                    : '⚠️ Face Absent'}
                 </span>
               ) : (
-                <span className="text-xs text-zinc-500 flex items-center gap-1">
+                <span className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
                   <CameraOff className="w-3.5 h-3.5" /> Offline
                 </span>
               )}
             </div>
-            <div className="text-[11px] text-surface-500">{modelReady ? 'MediaPipe BlazeFace ML' : 'Initializing...'}</div>
+            <div className="text-[11px] text-muted-foreground font-medium">{modelReady ? 'MediaPipe BlazeFace' : 'Initializing...'}</div>
           </div>
-          <Camera className="w-8 h-8 text-cyan-500/40" />
-        </div>
+          <Camera className="w-8 h-8 text-sky-500/30" />
+        </Card>
       </div>
 
       {/* Main Workspace Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Coding Editor & Test Output */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="glass-card overflow-hidden border border-surface-200 dark:border-surface-700">
+          <Card className="overflow-hidden">
             {/* Editor Toolbar */}
-            <div className="bg-surface-100 dark:bg-surface-800/80 px-4 py-2.5 flex items-center justify-between border-b border-surface-200 dark:border-surface-700">
+            <div className="bg-muted/60 px-4 py-2.5 flex items-center justify-between border-b border-border">
               <div className="flex items-center gap-2">
-                <Code2 className="w-4 h-4 text-primary-600" />
-                <span className="text-xs font-bold font-mono text-surface-800 dark:text-surface-200">
+                <Code2 className="w-4 h-4 text-primary" />
+                <span className="text-xs font-bold font-mono text-foreground">
                   solution.ts
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={handleRunCode}
-                  className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1 bg-surface-200 dark:bg-surface-700"
+                  className="h-7 px-3 text-xs font-semibold"
                 >
-                  <Play className="w-3.5 h-3.5 text-success-600" /> Run Code
-                </button>
-                <button
+                  <Play className="w-3 h-3 text-emerald-500 mr-1 fill-current" /> Run Code
+                </Button>
+                <Button
+                  variant="brand"
+                  size="sm"
                   onClick={handleSubmit}
                   disabled={isSubmitting || submitted}
-                  className="btn-primary text-xs py-1.5 px-3.5 flex items-center gap-1 shadow-md shadow-primary-500/20"
+                  className="h-7 px-3.5 text-xs font-semibold shadow-xs"
                 >
-                  <Send className="w-3.5 h-3.5" />
+                  <Send className="w-3 h-3 mr-1" />
                   {isSubmitting ? 'Submitting...' : submitted ? 'Submitted' : 'Submit Solution'}
-                </button>
+                </Button>
               </div>
             </div>
 
-            {/* Code Input Area with Telemetry Interceptors */}
-            <div className="relative">
-              <textarea
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                rows={18}
-                className="w-full p-4 bg-surface-900 text-surface-100 font-mono text-xs leading-relaxed focus:outline-none resize-none selection:bg-primary-600 selection:text-white"
-                spellCheck={false}
-              />
-            </div>
-          </div>
+            {/* Code Input Area */}
+            <textarea
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              rows={18}
+              className="w-full p-4 bg-background text-foreground font-mono text-xs leading-relaxed focus:outline-none resize-none selection:bg-primary selection:text-primary-foreground"
+              spellCheck={false}
+            />
+          </Card>
 
           {/* Test Runner Terminal Output */}
-          <div className="glass-card p-4 bg-surface-950 text-surface-200 font-mono text-xs rounded-xl border border-surface-800 space-y-2">
-            <div className="flex items-center justify-between text-surface-500 text-[11px] pb-1 border-b border-surface-800">
-              <span>Test Runner Output</span>
+          <Card className="p-4 bg-background font-mono text-xs border border-border space-y-2">
+            <div className="flex items-center justify-between text-muted-foreground text-[11px] pb-1 border-b border-border">
+              <span className="font-bold">Test Runner Output</span>
               <span>Node.js / TypeScript v5</span>
             </div>
-            <pre className="whitespace-pre-wrap text-emerald-400 font-mono text-xs">{consoleOutput}</pre>
-          </div>
+            <pre className="whitespace-pre-wrap text-emerald-500 font-mono text-xs">{consoleOutput}</pre>
+          </Card>
         </div>
 
         {/* Right Col: Live Webcam Proctoring View & Telemetry Stream */}
         <div className="space-y-4">
-          {/* Live Webcam Proctoring Box */}
-          <div className="glass-card p-4 space-y-3 relative overflow-hidden border border-cyan-500/30">
+          {/* Live Webcam Proctoring Card */}
+          <Card className="p-4 space-y-3 relative overflow-hidden">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-surface-900 dark:text-white flex items-center gap-1.5">
-                <Video className="w-4 h-4 text-cyan-500" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                <Video className="w-4 h-4 text-sky-500" />
                 Live Video Proctoring Feed
               </h3>
               <div className="flex items-center gap-2">
-                <button
+                <Button
+                  variant="link"
+                  size="sm"
                   onClick={() => (cameraActive ? stopWebcam() : startWebcam())}
-                  className="text-[11px] font-semibold text-primary-600 dark:text-primary-400 underline"
+                  className="h-auto p-0 text-xs font-semibold"
                 >
                   {cameraActive ? 'Turn Off' : 'Turn On'}
-                </button>
+                </Button>
                 <button
                   onClick={() => setWebcamExpanded(!webcamExpanded)}
-                  className="text-surface-400 hover:text-white"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   {webcamExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
                 </button>
@@ -570,9 +563,12 @@ export const CandidateAssessment: React.FC = () => {
             </div>
 
             {/* Video Preview Frame */}
-            <div className={`relative rounded-xl overflow-hidden bg-black flex items-center justify-center transition-all ${
-              webcamExpanded ? 'h-64' : 'h-48'
-            }`}>
+            <div
+              className={cn(
+                'relative rounded-xl overflow-hidden bg-black flex items-center justify-center transition-all border border-border',
+                webcamExpanded ? 'h-64' : 'h-48'
+              )}
+            >
               {cameraActive ? (
                 <>
                   <video
@@ -580,31 +576,37 @@ export const CandidateAssessment: React.FC = () => {
                     autoPlay
                     playsInline
                     muted
-                    className="w-full h-full object-cover mirror"
+                    className="w-full h-full object-cover"
                     style={{ transform: 'scaleX(-1)' }}
                   />
                   {/* Dynamic Bounding Box Overlay */}
-                  <div className={`absolute inset-3 border-2 rounded-xl pointer-events-none flex flex-col justify-between p-2 transition-colors ${
-                    cameraStatus === 'face_locked'
-                      ? 'border-emerald-400/80 shadow-[inset_0_0_15px_rgba(52,211,153,0.2)]'
-                      : cameraStatus === 'multiple_faces'
-                      ? 'border-rose-500 shadow-[inset_0_0_20px_rgba(244,63,94,0.3)] animate-pulse'
-                      : cameraStatus === 'camera_blocked'
-                      ? 'border-rose-500'
-                      : 'border-amber-500'
-                  }`}>
-                    <div className="flex items-center justify-between text-[10px] font-mono text-emerald-400 bg-black/70 px-1.5 py-0.5 rounded backdrop-blur-sm">
+                  <div
+                    className={cn(
+                      'absolute inset-3 border-2 rounded-xl pointer-events-none flex flex-col justify-between p-2 transition-colors',
+                      cameraStatus === 'face_locked'
+                        ? 'border-emerald-500/80 shadow-[inset_0_0_15px_rgba(16,185,129,0.2)]'
+                        : cameraStatus === 'multiple_faces'
+                        ? 'border-rose-500 shadow-[inset_0_0_20px_rgba(244,63,94,0.3)] animate-pulse'
+                        : cameraStatus === 'camera_blocked'
+                        ? 'border-rose-500'
+                        : 'border-amber-500'
+                    )}
+                  >
+                    <div className="flex items-center justify-between text-[10px] font-mono text-emerald-400 bg-black/80 px-1.5 py-0.5 rounded backdrop-blur-sm">
                       <span className="flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                         REC • 30FPS
                       </span>
-                      <span className={`font-bold ${
-                        cameraStatus === 'face_locked'
-                          ? 'text-emerald-400'
-                          : cameraStatus === 'multiple_faces'
-                          ? 'text-rose-400'
-                          : 'text-amber-400'
-                      }`}>
+                      <span
+                        className={cn(
+                          'font-bold',
+                          cameraStatus === 'face_locked'
+                            ? 'text-emerald-400'
+                            : cameraStatus === 'multiple_faces'
+                            ? 'text-rose-400'
+                            : 'text-amber-400'
+                        )}
+                      >
                         {cameraStatus === 'face_locked'
                           ? `Face: ${faceConfidence}% Match`
                           : cameraStatus === 'multiple_faces'
@@ -615,117 +617,126 @@ export const CandidateAssessment: React.FC = () => {
 
                     {/* Live Warning Banners */}
                     {cameraStatus === 'multiple_faces' && (
-                      <div className="p-2 rounded-lg bg-rose-900/90 text-white text-xs font-bold text-center flex items-center justify-center gap-1.5 shadow-xl border border-rose-500">
+                      <div className="p-2 rounded-lg bg-rose-950/90 text-rose-200 text-xs font-bold text-center flex items-center justify-center gap-1.5 border border-rose-500 shadow-lg">
                         <Users className="w-4 h-4 text-rose-300" />
-                        <span>⚠️ Multiple Faces Detected ({detectedFacesCount} People in Frame)</span>
+                        <span>⚠️ Multiple Faces ({detectedFacesCount} Persons in View)</span>
                       </div>
                     )}
 
                     {cameraStatus === 'face_absent' && (
-                      <div className="p-2 rounded-lg bg-amber-900/90 text-white text-xs font-bold text-center flex items-center justify-center gap-1.5 shadow-xl border border-amber-500">
+                      <div className="p-2 rounded-lg bg-amber-950/90 text-amber-200 text-xs font-bold text-center flex items-center justify-center gap-1.5 border border-amber-500 shadow-lg">
                         <AlertTriangle className="w-4 h-4 text-amber-300" />
                         <span>⚠️ No Face Detected (Candidate Out Of View)</span>
                       </div>
                     )}
 
                     {cameraStatus === 'camera_blocked' && (
-                      <div className="p-2 rounded-lg bg-rose-900/90 text-white text-xs font-bold text-center flex items-center justify-center gap-1.5 shadow-xl border border-rose-500">
+                      <div className="p-2 rounded-lg bg-rose-950/90 text-rose-200 text-xs font-bold text-center flex items-center justify-center gap-1.5 border border-rose-500 shadow-lg">
                         <AlertCircle className="w-4 h-4 text-rose-300" />
-                        <span>⚠️ Camera Covered / Pitch Black Screen</span>
+                        <span>⚠️ Camera Obstructed</span>
                       </div>
                     )}
 
                     {cameraStatus === 'face_locked' && (
-                      <div className="flex items-center justify-between text-[9px] font-mono text-emerald-400 bg-black/70 px-1.5 py-0.5 rounded backdrop-blur-sm">
+                      <div className="flex items-center justify-between text-[9px] font-mono text-emerald-400 bg-black/80 px-1.5 py-0.5 rounded backdrop-blur-sm">
                         <span className="flex items-center gap-1 font-semibold">
                           <CheckCircle2 className="w-3 h-3" /> Candidate Verified
                         </span>
-                        <span>1 Face Detected</span>
+                        <span>1 Face Locked</span>
                       </div>
                     )}
                   </div>
                 </>
               ) : (
                 <div className="text-center p-6 space-y-2">
-                  <CameraOff className="w-8 h-8 text-zinc-600 mx-auto" />
-                  <p className="text-xs text-zinc-400">Webcam permission prompt or camera disabled.</p>
-                  <button
+                  <CameraOff className="w-8 h-8 text-muted-foreground mx-auto" />
+                  <p className="text-xs text-muted-foreground">Webcam disabled or waiting for permission.</p>
+                  <Button
                     onClick={startWebcam}
-                    className="btn-primary text-xs py-1.5 px-3 bg-cyan-600 hover:bg-cyan-500"
+                    size="sm"
+                    variant="brand"
+                    className="text-xs font-semibold"
                   >
                     Enable Camera Access
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
 
-            {/* Real Face Scanner & Demo Action Controls */}
-            <div className="pt-2 border-t border-surface-200 dark:border-surface-700/60 space-y-1.5">
+            {/* Action Buttons */}
+            <div className="pt-2 border-t border-border space-y-2">
               <div className="flex items-center gap-2">
-                <button
+                <Button
                   onClick={handleScanFaceNow}
                   disabled={!cameraActive || isScanningFace}
-                  className="flex-1 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center justify-center gap-1 shadow transition-all disabled:opacity-50"
+                  variant="success"
+                  size="sm"
+                  className="flex-1 text-xs font-semibold"
                 >
-                  <Scan className="w-3.5 h-3.5" />
+                  <Scan className="w-3.5 h-3.5 mr-1" />
                   {isScanningFace ? 'Scanning...' : 'Scan Face Live'}
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleSimulateAbsenceForDemo}
                   disabled={!cameraActive}
-                  className="py-1.5 px-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-amber-400 text-[10px] font-semibold border border-zinc-700 transition-all"
-                  title="Simulates a 5-second face absence event to test proctor alerts"
+                  variant="outline"
+                  size="sm"
+                  className="text-[10px] text-amber-500 hover:text-amber-400"
+                  title="Simulate 5s violation alert"
                 >
-                  Demo Violation Alert
-                </button>
+                  Demo Alert
+                </Button>
               </div>
-              <p className="text-[10px] text-surface-400 text-center">
-                Live AI continuously verifies candidate presence &amp; room integrity.
+              <p className="text-[10px] text-muted-foreground text-center">
+                Automated ML proctoring runs in-browser via WebGL.
               </p>
             </div>
-          </div>
+          </Card>
 
           {/* Real-time Telemetry Event Feed */}
-          <div className="glass-card p-4 space-y-3">
+          <Card className="p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-surface-900 dark:text-white flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-primary-600" />
-                Live Integrity Telemetry Stream
+              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-primary" />
+                Live Integrity Stream
               </h3>
-              <span className="badge badge-neutral text-[10px] font-mono">{telemetryLogs.length} events</span>
+              <Badge variant="outline" className="text-[10px] font-mono">
+                {telemetryLogs.length} events
+              </Badge>
             </div>
 
             <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
               {telemetryLogs.length === 0 ? (
-                <div className="text-center py-6 text-xs text-surface-500 italic">
-                  Start typing, pasting, or switching tabs to generate live telemetry.
+                <div className="text-center py-6 text-xs text-muted-foreground italic">
+                  Type, paste, or switch tabs to generate live telemetry signals.
                 </div>
               ) : (
                 telemetryLogs.map((log, idx) => (
                   <div
                     key={idx}
-                    className="p-2 rounded-lg bg-surface-50 dark:bg-surface-800/60 border border-surface-200 dark:border-surface-700 flex items-center justify-between gap-2 text-xs"
+                    className="p-2 rounded-lg bg-muted/40 border border-border flex items-center justify-between gap-2 text-xs"
                   >
                     <div className="flex items-center gap-2 truncate">
-                      <span
-                        className={`badge font-mono font-bold text-[9px] uppercase ${
+                      <Badge
+                        variant={
                           log.type === 'paste' || log.type === 'code_insert'
-                            ? 'badge-warning'
+                            ? 'warning'
                             : log.type === 'tab_blur' || log.type.startsWith('webcam')
-                            ? 'badge-danger'
-                            : 'badge-primary'
-                        }`}
+                            ? 'destructive'
+                            : 'brand'
+                        }
+                        className="font-mono text-[9px] uppercase px-1.5 py-0"
                       >
                         {log.type}
-                      </span>
-                      <span className="text-surface-800 dark:text-surface-200 truncate">{log.details}</span>
+                      </Badge>
+                      <span className="text-foreground truncate">{log.details}</span>
                     </div>
-                    <span className="text-[10px] font-mono text-surface-400 flex-shrink-0">{log.time}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground flex-shrink-0">{log.time}</span>
                   </div>
                 ))
               )}
             </div>
-          </div>
+          </Card>
         </div>
       </div>
     </div>
