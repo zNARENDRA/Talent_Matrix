@@ -52,7 +52,7 @@ export async function initFaceDetector(): Promise<FaceDetector> {
  */
 export async function detectFaces(
   video: HTMLVideoElement,
-  canvas?: HTMLCanvasElement
+  canvas: HTMLCanvasElement
 ): Promise<FaceDetectionResult> {
   // Guard: video not ready
   if (!video || video.readyState < 2 || video.videoWidth === 0) {
@@ -65,32 +65,28 @@ export async function detectFaces(
   }
 
   // Quick luminance check for camera blocked (pitch dark)
-  if (canvas) {
-    try {
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        canvas.width = 80;
-        canvas.height = 60;
-        ctx.drawImage(video, 0, 0, 80, 60);
-        const frame = ctx.getImageData(0, 0, 80, 60);
-        let totalLum = 0;
-        for (let i = 0; i < frame.data.length; i += 4) {
-          totalLum += (frame.data[i] + frame.data[i + 1] + frame.data[i + 2]) / 3;
-        }
-        const avgLum = totalLum / (frame.data.length / 4);
-        if (avgLum < 10) {
-          return {
-            faceCount: 0,
-            confidence: 0,
-            status: 'camera_blocked',
-            message: '⚠️ Camera Covered / Pitch Dark Screen',
-          };
-        }
+  try {
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      canvas.width = 80;
+      canvas.height = 60;
+      ctx.drawImage(video, 0, 0, 80, 60);
+      const frame = ctx.getImageData(0, 0, 80, 60);
+      let totalLum = 0;
+      for (let i = 0; i < frame.data.length; i += 4) {
+        totalLum += (frame.data[i] + frame.data[i + 1] + frame.data[i + 2]) / 3;
       }
-    } catch {
-      // Ignore canvas read errors (e.g. cross-origin taint)
+      const avgLum = totalLum / (frame.data.length / 4);
+      if (avgLum < 10) {
+        return {
+          faceCount: 0,
+          confidence: 0,
+          status: 'camera_blocked',
+          message: '⚠️ Camera Covered / Pitch Dark Screen',
+        };
+      }
     }
-  }
+  } catch (_) {}
 
   // Use MediaPipe Face Detector
   try {

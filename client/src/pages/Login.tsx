@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api';
@@ -210,7 +210,7 @@ export const LoginPage: React.FC = () => {
                   <Input
                     type="text"
                     value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIdentifier(e.target.value)}
                     placeholder={portalType === 'student' ? 'e.g. STU1001 or student@university.edu' : 'e.g. admin@talentmatrix.edu'}
                     className="pl-10"
                     required
@@ -227,7 +227,7 @@ export const LoginPage: React.FC = () => {
                   <Input
                     type="password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="pl-10 font-mono tracking-widest"
                     required

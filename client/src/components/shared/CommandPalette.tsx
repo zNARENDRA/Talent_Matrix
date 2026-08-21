@@ -5,28 +5,22 @@ import { useAppStore } from '../../store/appStore';
 import { useKeyboardShortcut } from '../../hooks/useApi';
 import {
   Search, Users, Building2, Megaphone, CalendarClock, ShieldAlert,
-  BarChart3, ArrowRight, Shuffle, Code2, X, Sparkles, UserCheck,
-  Globe, FileSpreadsheet, Terminal, Settings, GraduationCap
+  BarChart3, ArrowRight, Shuffle, Code2, X,
 } from 'lucide-react';
-import { Badge } from '../ui/badge';
-import { cn } from '../../lib/utils';
 
 const quickActions = [
-  { label: 'Executive Dashboard', path: '/', icon: BarChart3, section: 'Core Views' },
-  { label: 'Placement Allocation Engine (Gale-Shapley)', path: '/allocation', icon: Shuffle, section: 'Core Views', badge: 'Module A' },
-  { label: 'Selection & Deselection Studio', path: '/selection-studio', icon: UserCheck, section: 'Core Views' },
-  { label: 'What-If Simulation Lab', path: '/simulation', icon: Sparkles, section: 'Core Views' },
-  { label: 'Job Crawler & Ingestion', path: '/crawler', icon: Globe, section: 'Core Views' },
-  { label: 'Multi-Round Recruitment Drives', path: '/drives', icon: Megaphone, section: 'Management' },
-  { label: 'Dynamic Interview Scheduler', path: '/scheduler', icon: CalendarClock, section: 'Management' },
-  { label: 'Proctored Coding Sandbox', path: '/candidate-sandbox', icon: Terminal, section: 'Assessments' },
-  { label: 'Candidate Coding Assessments', path: '/assessments', icon: Code2, section: 'Assessments' },
-  { label: 'AI Anomaly Center & Telemetry', path: '/anomalies', icon: ShieldAlert, section: 'Assessments' },
-  { label: 'Student Directory', path: '/students', icon: Users, section: 'Institutional' },
-  { label: 'Partner Companies', path: '/companies', icon: Building2, section: 'Institutional' },
-  { label: 'Yearly Placement Reports', path: '/yearly-reports', icon: FileSpreadsheet, section: 'Institutional' },
-  { label: 'System Settings', path: '/settings', icon: Settings, section: 'Institutional' },
-  { label: 'Student Career Portal', path: '/student-portal', icon: GraduationCap, section: 'Candidate' },
+  { label: 'Dashboard', path: '/', icon: BarChart3, section: 'Pages' },
+  { label: 'Students', path: '/students', icon: Users, section: 'Pages' },
+  { label: 'Companies', path: '/companies', icon: Building2, section: 'Pages' },
+  { label: 'Recruitment Drives', path: '/drives', icon: Megaphone, section: 'Pages' },
+  { label: 'Allocation Engine', path: '/allocation', icon: Shuffle, section: 'Pages' },
+  { label: 'Interview Scheduler', path: '/scheduler', icon: CalendarClock, section: 'Pages' },
+  { label: 'Coding Assessments', path: '/assessments', icon: Code2, section: 'Pages' },
+  { label: 'Anomaly Center', path: '/anomalies', icon: ShieldAlert, section: 'Pages' },
+  { label: 'Analytics', path: '/analytics', icon: BarChart3, section: 'Pages' },
+  { label: 'Run Allocation', path: '/allocation', icon: Shuffle, section: 'Actions' },
+  { label: 'View Scheduling Conflicts', path: '/scheduler', icon: CalendarClock, section: 'Actions' },
+  { label: 'Review Anomaly Alerts', path: '/anomalies', icon: ShieldAlert, section: 'Actions' },
 ];
 
 export const CommandPalette: React.FC = () => {
@@ -39,10 +33,7 @@ export const CommandPalette: React.FC = () => {
 
   const filtered = useMemo(() => {
     if (!query) return quickActions;
-    return quickActions.filter((a) =>
-      a.label.toLowerCase().includes(query.toLowerCase()) ||
-      a.section.toLowerCase().includes(query.toLowerCase())
-    );
+    return quickActions.filter((a) => a.label.toLowerCase().includes(query.toLowerCase()));
   }, [query]);
 
   const handleSelect = useCallback((path: string) => {
@@ -58,21 +49,10 @@ export const CommandPalette: React.FC = () => {
   useEffect(() => {
     if (!commandPaletteOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setCommandPaletteOpen(false);
-        setQuery('');
-      }
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIndex((i) => Math.max(i - 1, 0));
-      }
-      if (e.key === 'Enter' && filtered[selectedIndex]) {
-        handleSelect(filtered[selectedIndex].path);
-      }
+      if (e.key === 'Escape') { setCommandPaletteOpen(false); setQuery(''); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1)); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIndex((i) => Math.max(i - 1, 0)); }
+      if (e.key === 'Enter' && filtered[selectedIndex]) { handleSelect(filtered[selectedIndex].path); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -81,109 +61,73 @@ export const CommandPalette: React.FC = () => {
   return (
     <AnimatePresence>
       {commandPaletteOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 p-4">
-          {/* Backdrop */}
+        <>
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm"
-            onClick={() => {
-              setCommandPaletteOpen(false);
-              setQuery('');
-            }}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50"
+            onClick={() => { setCommandPaletteOpen(false); setQuery(''); }}
           />
-
-          {/* Dialog Panel */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: -10 }}
+            initial={{ opacity: 0, scale: 0.95, y: -20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: -10 }}
-            transition={{ duration: 0.15 }}
-            className="relative z-50 w-full max-w-xl rounded-xl border border-border bg-card shadow-2xl text-card-foreground overflow-hidden"
+            exit={{ opacity: 0, scale: 0.95, y: -20 }}
+            transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+            className="fixed top-[20%] left-1/2 -translate-x-1/2 w-full max-w-lg bg-white dark:bg-surface-900 rounded-2xl shadow-2xl z-50 overflow-hidden border border-surface-200 dark:border-surface-700"
           >
-            {/* Search Input Bar */}
-            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border">
-              <Search className="w-4 h-4 text-muted-foreground" />
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-surface-200 dark:border-surface-700">
+              <Search className="w-5 h-5 text-surface-400" />
               <input
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Type a command or search modules..."
-                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+                placeholder="Search pages, actions, students..."
+                className="flex-1 bg-transparent text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 outline-none"
               />
-              <kbd className="text-xs font-mono bg-muted border border-border px-1.5 py-0.5 rounded text-muted-foreground">
-                ESC
-              </kbd>
+              <button onClick={() => { setCommandPaletteOpen(false); setQuery(''); }}>
+                <X className="w-4 h-4 text-surface-400" />
+              </button>
             </div>
-
-            {/* Results List */}
-            <div className="max-h-80 overflow-y-auto p-2">
+            <div className="max-h-72 overflow-y-auto py-2">
               {filtered.length === 0 ? (
-                <div className="px-4 py-8 text-center text-xs text-muted-foreground">
-                  No matching commands or pages found.
-                </div>
+                <div className="px-4 py-8 text-center text-sm text-surface-400">No results found</div>
               ) : (
-                <div className="space-y-1">
-                  {filtered.map((action, idx) => {
-                    const isSelected = idx === selectedIndex;
-
+                <>
+                  {['Pages', 'Actions'].map((section) => {
+                    const items = filtered.filter((a) => a.section === section);
+                    if (items.length === 0) return null;
                     return (
-                      <div
-                        key={`${action.path}-${action.label}`}
-                        onClick={() => handleSelect(action.path)}
-                        onMouseEnter={() => setSelectedIndex(idx)}
-                        className={cn(
-                          'flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium cursor-pointer transition-colors',
-                          isSelected
-                            ? 'bg-primary text-primary-foreground font-semibold'
-                            : 'text-foreground hover:bg-muted'
-                        )}
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <action.icon
-                            className={cn(
-                              'w-4 h-4 flex-shrink-0',
-                              isSelected ? 'text-primary-foreground' : 'text-muted-foreground'
-                            )}
-                          />
-                          <span className="truncate">{action.label}</span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {action.badge && (
-                            <Badge
-                              variant={isSelected ? 'secondary' : 'outline'}
-                              className="text-xs px-1.5 py-0"
+                      <div key={section}>
+                        <div className="px-4 py-1.5 text-xs font-semibold text-surface-400 uppercase tracking-wider">{section}</div>
+                        {items.map((item) => {
+                          const globalIdx = filtered.indexOf(item);
+                          return (
+                            <button
+                              key={item.label}
+                              onClick={() => handleSelect(item.path)}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors ${globalIdx === selectedIndex ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400' : 'text-surface-700 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800'}`}
                             >
-                              {action.badge}
-                            </Badge>
-                          )}
-                          <span
-                            className={cn(
-                              'text-xs uppercase font-semibold',
-                              isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'
-                            )}
-                          >
-                            {action.section}
-                          </span>
-                        </div>
+                              <item.icon className="w-4 h-4" />
+                              <span className="flex-1">{item.label}</span>
+                              <ArrowRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100" />
+                            </button>
+                          );
+                        })}
                       </div>
                     );
                   })}
-                </div>
+                </>
               )}
             </div>
-
-            {/* Footer Tip */}
-            <div className="px-4 py-2 border-t border-border bg-muted/30 flex items-center justify-between text-xs text-muted-foreground">
-              <span>Use <kbd className="font-mono bg-background border px-1 rounded">↑</kbd> <kbd className="font-mono bg-background border px-1 rounded">↓</kbd> to navigate</span>
-              <span>Press <kbd className="font-mono bg-background border px-1 rounded">↵</kbd> to select</span>
+            <div className="px-4 py-2 border-t border-surface-200 dark:border-surface-700 flex items-center gap-4 text-xs text-surface-400">
+              <span><kbd className="bg-surface-100 dark:bg-surface-800 px-1 rounded">↑↓</kbd> Navigate</span>
+              <span><kbd className="bg-surface-100 dark:bg-surface-800 px-1 rounded">⏎</kbd> Open</span>
+              <span><kbd className="bg-surface-100 dark:bg-surface-800 px-1 rounded">Esc</kbd> Close</span>
             </div>
           </motion.div>
-        </div>
+        </>
       )}
     </AnimatePresence>
   );
 };
-export default CommandPalette;

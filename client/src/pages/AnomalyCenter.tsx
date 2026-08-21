@@ -8,11 +8,20 @@ import {
   XCircle, ArrowUpCircle, Clock, Code2, Clipboard, MonitorX, Keyboard,
   Sparkles, Bot, RefreshCw, ChevronRight, ExternalLink, Camera, CameraOff, Video, Users
 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
-import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
-import { cn } from '../lib/utils';
+
+const riskColors: Record<string, string> = {
+  normal: 'badge badge-success',
+  low: 'badge badge-info',
+  moderate: 'badge badge-warning',
+  high: 'badge badge-danger',
+  critical: 'badge bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+};
+
+const severityColors: Record<string, string> = {
+  critical: 'border-l-4 border-red-500 bg-red-50/50 dark:bg-red-900/10',
+  high: 'border-l-4 border-orange-500 bg-orange-50/50 dark:bg-orange-900/10',
+  moderate: 'border-l-4 border-amber-500 bg-amber-50/50 dark:bg-amber-900/10',
+};
 
 const signalIcons: Record<string, React.ReactNode> = {
   paste_frequency: <Clipboard className="w-4 h-4" />,
@@ -38,7 +47,7 @@ export const AnomalyCenterPage: React.FC = () => {
   useEffect(() => {
     const socket = getSocket();
 
-    const handleNewAlert = () => {
+    const handleNewAlert = (newAlert: any) => {
       refetch();
       refetchStats();
     };
@@ -77,264 +86,280 @@ export const AnomalyCenterPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-6 space-y-6">
       {/* Title & AI Provider Tag */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <ShieldAlert className="w-6 h-6 text-rose-500" />
-              Proctor Anomaly Command Center
-            </h1>
-            <Badge variant="brand" className="font-semibold text-xs flex items-center gap-1">
-              <Bot className="w-3.5 h-3.5" /> AI Verified
-            </Badge>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Real-time assessment integrity triage, continuous telemetry scoring & AI explainability.
+          <h1 className="section-title flex items-center gap-3">
+            <ShieldAlert className="w-7 h-7 text-danger-500" />
+            Anomaly Center
+          </h1>
+          <p className="text-surface-500 mt-1">
+            Real-time assessment integrity triage, continuous telemetry scoring & AI explainability
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { refetch(); refetchStats(); }}
-            className="text-xs font-semibold"
-          >
-            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Refresh Signals
-          </Button>
-          <Button
-            variant="brand"
-            size="sm"
-            onClick={() => window.open('/candidate-sandbox', '_blank')}
-            className="text-xs font-semibold shadow-sm"
-          >
-            <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> Open Sandbox
-          </Button>
+        {/* AI Provider Status Pill */}
+        <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 text-xs">
+          <Bot className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+          <span className="text-surface-500">AI Intelligence:</span>
+          <span className="font-semibold text-surface-900 dark:text-white">
+            {aiStatus?.activeProvider || 'Deterministic Telemetry Model'}
+          </span>
+          <span className="badge badge-primary text-[10px] uppercase font-mono">
+            {aiStatus?.model || 'v2.0'}
+          </span>
         </div>
       </div>
 
-      {/* KPI Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4 flex items-center justify-between">
-          <div>
-            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Total Alerts</div>
-            <div className="text-3xl font-extrabold font-mono text-foreground mt-0.5">
-              {stats?.totalAlerts || 0}
-            </div>
-            <div className="text-xs text-muted-foreground font-medium">Logged Violations</div>
-          </div>
-          <ShieldAlert className="w-8 h-8 text-rose-500/30" />
-        </Card>
-
-        <Card className="p-4 flex items-center justify-between">
-          <div>
-            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">High / Critical</div>
-            <div className="text-3xl font-extrabold font-mono text-rose-500 mt-0.5">
-              {stats?.criticalAlerts || 0}
-            </div>
-            <div className="text-xs text-muted-foreground font-medium">Immediate Attention</div>
-          </div>
-          <AlertTriangle className="w-8 h-8 text-rose-500/30" />
-        </Card>
-
-        <Card className="p-4 flex items-center justify-between">
-          <div>
-            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Avg Authenticity</div>
-            <div className="text-3xl font-extrabold font-mono text-emerald-500 mt-0.5">
-              {stats?.avgAuthenticityScore ? `${Math.round(stats.avgAuthenticityScore)}%` : '94%'}
-            </div>
-            <div className="text-xs text-muted-foreground font-medium">Across Cohort</div>
-          </div>
-          <Sparkles className="w-8 h-8 text-emerald-500/30" />
-        </Card>
-
-        <Card className="p-4 flex items-center justify-between">
-          <div>
-            <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Active Model</div>
-            <div className="text-sm font-bold text-foreground mt-1 truncate">
-              {aiStatus?.model || 'Gemini 1.5 Pro'}
-            </div>
-            <div className="text-xs text-muted-foreground font-medium">Behavioral Telemetry</div>
-          </div>
-          <Bot className="w-8 h-8 text-indigo-500/30" />
-        </Card>
+      {/* Fairness & Legal Notice */}
+      <div className="flex items-start gap-3 p-4 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800">
+        <ShieldCheck className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+        <div className="text-xs text-blue-700 dark:text-blue-300">
+          <span className="font-semibold block mb-0.5">Fairness & Privacy by Design</span>
+          Anomaly scores and telemetry signals serve exclusively as decision-support indicators. Automatic disciplinary disqualification based purely on scores is prohibited. All flagged cases mandate human review with explainable signal inspection.
+        </div>
       </div>
 
-      {/* Main Alerts List */}
-      <Card>
-        <CardHeader>
+      {/* Real Stats */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <div className="glass-card p-4 text-center">
+            <div className="text-2xl font-bold text-danger-500">{stats.criticalAlerts}</div>
+            <div className="text-xs text-surface-500 mt-1">Critical Alerts</div>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <div className="text-2xl font-bold text-warning-600">{stats.highAlerts}</div>
+            <div className="text-xs text-surface-500 mt-1">High Risk</div>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <div className="text-2xl font-bold text-amber-500">{stats.moderateAlerts}</div>
+            <div className="text-xs text-surface-500 mt-1">Moderate</div>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <div className="text-2xl font-bold text-info-500">{stats.newAlerts}</div>
+            <div className="text-xs text-surface-500 mt-1">Pending Review</div>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <div className="text-2xl font-bold text-primary-600">{stats.averageAuthenticityScore}</div>
+            <div className="text-xs text-surface-500 mt-1">Avg Score</div>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <div className="text-2xl font-bold text-surface-600">{stats.totalSessions}</div>
+            <div className="text-xs text-surface-500 mt-1">Total Sessions</div>
+          </div>
+        </div>
+      )}
+
+      {/* Alerts & Review Layout */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Alerts Feed */}
+        <div className="flex-1 space-y-3">
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base">Real-Time Anomaly Triage Queue</CardTitle>
-              <CardDescription>Click any alert to inspect multi-signal breakdown and trigger AI analysis</CardDescription>
-            </div>
-            <Badge variant="outline" className="font-mono text-xs">
-              {alerts?.data?.length || 0} Open
-            </Badge>
+            <h2 className="card-title text-base flex items-center gap-2">
+              Active Anomaly Queue
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            </h2>
+            <button onClick={() => { refetch(); refetchStats(); }} className="btn-ghost text-xs py-1">
+              <RefreshCw className="w-3.5 h-3.5" /> Refresh
+            </button>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="divide-y divide-border">
-            {loading ? (
-              <div className="py-12 text-center text-xs text-muted-foreground">
-                <RefreshCw className="w-5 h-5 animate-spin mx-auto text-primary mb-2" />
-                Loading proctored telemetry signals...
-              </div>
-            ) : alerts?.data?.length === 0 ? (
-              <div className="py-12 text-center text-xs text-muted-foreground">
-                <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                No active integrity violations detected.
-              </div>
-            ) : (
-              alerts?.data?.map((alert: any) => {
-                const signals = JSON.parse(alert.signals || '[]');
 
-                return (
-                  <div
-                    key={alert.id}
-                    onClick={() => setSelectedAlert(alert)}
-                    className="p-4 hover:bg-muted/40 transition-colors cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4"
-                  >
-                    <div className="flex items-start gap-3.5">
-                      <div className="mt-1">
-                        <Badge
-                          variant={
-                            alert.severity === 'critical' || alert.severity === 'high'
-                              ? 'destructive'
-                              : alert.severity === 'moderate'
-                              ? 'warning'
-                              : 'info'
-                          }
-                          className="text-xs uppercase font-mono font-bold"
+          {loading ? (
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-24 rounded-xl" />)}
+            </div>
+          ) : alerts?.data?.length === 0 ? (
+            <div className="glass-card p-12 text-center">
+              <ShieldCheck className="w-12 h-12 text-success-500 mx-auto mb-3" />
+              <h3 className="font-semibold text-lg">Integrity Queue Clear</h3>
+              <p className="text-surface-500 mt-1 text-sm">
+                No active assessment integrity anomalies require immediate review.
+              </p>
+            </div>
+          ) : (
+            alerts?.data?.map((alert: any, i: number) => (
+              <motion.div
+                key={alert.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: Math.min(i * 0.04, 0.4) }}
+                onClick={() => setSelectedAlert(alert)}
+                className={`glass-card p-4 cursor-pointer hover:shadow-md transition-all ${
+                  severityColors[alert.severity] || ''
+                } ${selectedAlert?.id === alert.id ? 'ring-2 ring-primary-500' : ''}`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    {alert.severity === 'critical' ? (
+                      <ShieldAlert className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                    )}
+                    <div>
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className={riskColors[alert.severity]}>{alert.severity.toUpperCase()}</span>
+                        <span className="font-medium text-sm text-surface-900 dark:text-white">
+                          {alert.session?.student?.name}
+                        </span>
+                        <span className="text-xs text-surface-400 font-mono">
+                          {alert.session?.student?.studentId}
+                        </span>
+                      </div>
+                      <p className="text-sm text-surface-600 dark:text-surface-300 line-clamp-2">
+                        {alert.description}
+                      </p>
+                      <div className="flex items-center gap-3 mt-2 flex-wrap">
+                        <span className="text-xs text-surface-400 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {new Date(alert.createdAt).toLocaleString()}
+                        </span>
+                        <span
+                          className={`badge text-[11px] ${
+                            alert.status === 'new'
+                              ? 'badge-warning'
+                              : alert.status === 'reviewed'
+                              ? 'badge-success'
+                              : 'badge-primary'
+                          }`}
                         >
-                          {alert.severity}
-                        </Badge>
+                          Status: {alert.status}
+                        </span>
                       </div>
-
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-sm text-foreground">{alert.description}</h4>
-                          <Badge variant="outline" className="text-xs font-mono">
-                            Risk +{alert.score}
-                          </Badge>
-                        </div>
-
-                        <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-3">
-                          <span>
-                            Candidate: <strong className="text-foreground">{alert.session?.student?.name || 'Aarav Sharma'}</strong> ({alert.session?.student?.studentId || 'STU1001'})
-                          </span>
-                          <span>•</span>
-                          <span>Session: {alert.session?.assessmentName}</span>
-                          <span>•</span>
-                          <span className="font-mono">{new Date(alert.createdAt).toLocaleTimeString()}</span>
-                        </div>
-
-                        {/* Signals Pill Bar */}
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                          {signals.map((sig: string, idx: number) => (
-                            <Badge
-                              key={idx}
-                              variant="secondary"
-                              className="text-xs font-mono gap-1"
-                            >
-                              {signalIcons[sig] || <AlertTriangle className="w-3 h-3 text-amber-500" />}
-                              {sig.replace(/_/g, ' ')}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Button variant="secondary" size="sm" className="text-xs font-semibold">
-                        Review &amp; Action <ChevronRight className="w-3.5 h-3.5 ml-1" />
-                      </Button>
                     </div>
                   </div>
-                );
-              })
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Review Dialog */}
-      <Dialog open={!!selectedAlert} onOpenChange={(open) => !open && setSelectedAlert(null)}>
-        {selectedAlert && (
-          <div>
-            <DialogHeader>
-              <DialogTitle className="text-base flex items-center gap-2">
-                <ShieldAlert className="w-5 h-5 text-rose-500" />
-                Integrity Triage: {selectedAlert.description}
-              </DialogTitle>
-              <DialogDescription>
-                Candidate {selectedAlert.session?.student?.name} • Score impact: +{selectedAlert.score}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 my-4">
-              {/* AI Diagnosis */}
-              <div className="p-3.5 rounded-xl bg-muted/60 border border-border space-y-2">
-                <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <Bot className="w-4 h-4 text-indigo-500" />
-                  Gemini Behavioral AI Diagnosis
+                  <div className="text-right flex-shrink-0 pl-3">
+                    <div className="text-lg font-bold text-danger-500 font-mono">
+                      {Math.max(0, Math.round(100 - alert.score))}/100
+                    </div>
+                    <div className="text-[10px] uppercase text-surface-400 font-semibold">Auth Score</div>
+                  </div>
                 </div>
-                {loadingAi ? (
-                  <div className="text-xs text-muted-foreground flex items-center gap-2 py-2">
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Synthesizing telemetry report...
-                  </div>
-                ) : (
-                  <p className="text-xs text-foreground leading-relaxed">
-                    {aiReport?.explanation ||
-                      'Telemetry signals indicate elevated clipboard paste frequency combined with window focus loss during the core assessment interval.'}
-                  </p>
-                )}
-              </div>
 
-              <div>
-                <label className="text-xs font-semibold text-foreground block mb-1">Administrative Action Note</label>
-                <textarea
-                  value={reviewNote}
-                  onChange={(e) => setReviewNote(e.target.value)}
-                  placeholder="Record proctor review findings, candidate interview follow-up..."
-                  rows={3}
-                  className="w-full bg-background border border-border rounded-lg p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                />
+                {/* Contributing Signals Chips */}
+                <div className="flex flex-wrap gap-1.5 mt-3 ml-8">
+                  {JSON.parse(alert.signals || '[]').map((signal: string) => (
+                    <span key={signal} className="badge badge-neutral text-xs flex items-center gap-1">
+                      {signalIcons[signal] || <Code2 className="w-3.5 h-3.5" />}
+                      {signal.replace(/_/g, ' ')}
+                    </span>
+                  ))}
+                </div>
+              </motion.div>
+            ))
+          )}
+        </div>
+
+        {/* AI Explainability & Human Review Side-Drawer */}
+        {selectedAlert && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="w-full lg:w-[440px] glass-card p-5 h-fit sticky top-20 space-y-4 max-h-[85vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between border-b border-surface-200 dark:border-surface-700 pb-3">
+              <h3 className="card-title text-base">Anomaly Investigation</h3>
+              <button onClick={() => setSelectedAlert(null)} className="text-surface-400 hover:text-surface-600 text-lg">
+                ×
+              </button>
+            </div>
+
+            {/* Candidate Info */}
+            <div className="p-3 rounded-xl bg-surface-50 dark:bg-surface-800">
+              <div className="font-semibold text-sm text-surface-900 dark:text-white">
+                {selectedAlert.session?.student?.name}
+              </div>
+              <div className="text-xs text-surface-500 mt-0.5">
+                {selectedAlert.session?.student?.studentId} • {selectedAlert.session?.assessmentName}
               </div>
             </div>
 
-            <DialogFooter>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleReview(selectedAlert.id, 'dismissed')}
-                className="text-xs"
-              >
-                Dismiss Alert
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => handleReview(selectedAlert.id, 'escalated')}
-                className="text-xs"
-              >
-                Escalate Violation
-              </Button>
-              <Button
-                variant="brand"
-                size="sm"
+            {/* 1. Behavioral Risk Breakdown */}
+            <div className="p-3.5 rounded-xl bg-surface-50 dark:bg-surface-800/70 border border-surface-200 dark:border-surface-700 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-surface-900 dark:text-white">
+                <div className="flex items-center gap-1.5">
+                  <Code2 className="w-3.5 h-3.5 text-primary-500" />
+                  BEHAVIORAL TELEMETRY HEURISTICS
+                </div>
+                <span className="text-[10px] text-surface-400 font-mono">telemetry-engine-v2.0</span>
+              </div>
+              <p className="text-xs text-surface-600 dark:text-surface-300 leading-relaxed">
+                {aiReport?.behavioralRiskBreakdown?.technicalHeuristics || 'Telemetry signals compiled from candidate editor events.'}
+              </p>
+              {aiReport?.behavioralRiskBreakdown?.contributingFactors?.length > 0 && (
+                <div className="pt-1.5 border-t border-surface-200 dark:border-surface-700 space-y-1">
+                  <div className="text-[11px] font-semibold text-surface-500 uppercase">Contributing Signal Penalties:</div>
+                  <ul className="list-disc list-inside space-y-0.5 text-[11px] text-surface-600 dark:text-surface-400">
+                    {aiReport.behavioralRiskBreakdown.contributingFactors.map((factor: string, idx: number) => (
+                      <li key={idx}>{factor}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* 2. Generative AI Section */}
+            <div className="p-3.5 rounded-xl bg-gradient-to-br from-primary-50/50 to-indigo-50/30 dark:from-primary-950/20 dark:to-indigo-950/20 border border-primary-100 dark:border-primary-900/40 space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-primary-700 dark:text-primary-300">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-primary-500" />
+                  GENERATIVE AI ANALYSIS
+                </div>
+                <span className="text-[10px] text-surface-400 font-mono">
+                  {aiReport?.aiProvider ? `${aiReport.aiProvider} (${aiReport.aiModel})` : 'Unconfigured'}
+                </span>
+              </div>
+
+              {loadingAi ? (
+                <div className="space-y-1.5 py-1">
+                  <div className="skeleton h-3.5 w-full" />
+                  <div className="skeleton h-3.5 w-3/4" />
+                </div>
+              ) : (
+                <p className="text-xs text-surface-700 dark:text-surface-300 leading-relaxed whitespace-pre-wrap">
+                  {aiReport?.generativeExplanation || 'Generative AI analysis unavailable: Configure GEMINI_API_KEY or OPENAI_API_KEY in server environment.'}
+                </p>
+              )}
+            </div>
+
+            {/* Human Review Form */}
+            <div>
+              <label className="text-xs font-semibold text-surface-500 uppercase mb-1.5 block">
+                Administrator Review Decision Note
+              </label>
+              <textarea
+                value={reviewNote}
+                onChange={(e) => setReviewNote(e.target.value)}
+                placeholder="Document your review findings and decision rationale..."
+                className="input-field h-20 resize-none text-xs"
+              />
+            </div>
+
+            {/* Review Action Buttons */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              <button
                 onClick={() => handleReview(selectedAlert.id, 'reviewed')}
-                className="text-xs"
+                className="btn bg-success-50 text-success-700 hover:bg-success-100 dark:bg-success-900/20 dark:text-success-400 text-xs py-2"
               >
-                Mark Reviewed
-              </Button>
-            </DialogFooter>
-          </div>
+                <CheckCircle2 className="w-3.5 h-3.5" /> Reviewed
+              </button>
+              <button
+                onClick={() => handleReview(selectedAlert.id, 'escalated')}
+                className="btn bg-warning-50 text-warning-700 hover:bg-warning-100 dark:bg-warning-900/20 dark:text-warning-400 text-xs py-2"
+              >
+                <ArrowUpCircle className="w-3.5 h-3.5" /> Escalate
+              </button>
+              <button
+                onClick={() => handleReview(selectedAlert.id, 'dismissed')}
+                className="btn bg-surface-100 text-surface-600 hover:bg-surface-200 dark:bg-surface-800 dark:text-surface-400 text-xs py-2"
+              >
+                <XCircle className="w-3.5 h-3.5" /> Dismiss
+              </button>
+            </div>
+          </motion.div>
         )}
-      </Dialog>
+      </div>
     </div>
   );
 };
-export default AnomalyCenterPage;
