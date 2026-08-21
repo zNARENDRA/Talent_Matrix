@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api';
 import { useAuthStore } from '../lib/authStore';
 import { useAppStore } from '../store/appStore';
 import {
   GraduationCap, ShieldCheck, Building2, User, KeyRound,
   ArrowRight, Sparkles, CheckCircle2, AlertCircle, Users,
-  Sun, Moon, ShieldAlert, Laptop, Shield
+  Sun, Moon, ShieldAlert, Laptop, Shield, Mail, Phone, BookOpen, Award, UserPlus, LogIn
 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card';
+import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
@@ -21,12 +21,31 @@ export const LoginPage: React.FC = () => {
   const { login } = useAuthStore();
   const { theme, toggleTheme } = useAppStore();
 
+  // Mode: 'login' | 'register'
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [portalType, setPortalType] = useState<'admin' | 'student'>('student');
+
+  // Login form state
   const [identifier, setIdentifier] = useState('STU1001');
   const [password, setPassword] = useState('student123');
+
+  // Register form state
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [regStudentId, setRegStudentId] = useState('');
+  const [regDepartment, setRegDepartment] = useState('CSE');
+  const [regGpa, setRegGpa] = useState('8.5');
+  const [regPhone, setRegPhone] = useState('');
+  const [regGradYear, setRegGradYear] = useState('2026');
+  const [regStaffRole, setRegStaffRole] = useState('coordinator');
+
+  // CAPTCHA state
   const [captchaInput, setCaptchaInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [demoData, setDemoData] = useState<{ staff: any[]; students: any[] }>({ staff: [], students: [] });
 
   const captchaRef = useRef<CaptchaRef | null>(null);
@@ -44,10 +63,11 @@ export const LoginPage: React.FC = () => {
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setError(null);
+    setSuccessMsg(null);
 
-    // 1. Verify CAPTCHA
+    // Verify CAPTCHA
     if (!captchaRef.current?.validate(captchaInput)) {
-      setError('Invalid security CAPTCHA code. Please verify the characters displayed in the badge.');
+      setError('Invalid security CAPTCHA code. Please verify the characters in the badge.');
       captchaRef.current?.refresh();
       setCaptchaInput('');
       return;
@@ -79,14 +99,77 @@ export const LoginPage: React.FC = () => {
     }
   };
 
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMsg(null);
+
+    // Validate passwords match
+    if (regPassword !== regConfirmPassword) {
+      setError('Passwords do not match. Please re-enter your password.');
+      return;
+    }
+
+    if (regPassword.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    // Verify CAPTCHA
+    if (!captchaRef.current?.validate(captchaInput)) {
+      setError('Invalid security CAPTCHA code. Please verify the characters in the badge.');
+      captchaRef.current?.refresh();
+      setCaptchaInput('');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const payload: any = {
+        name: regName,
+        email: regEmail,
+        password: regPassword,
+        role: portalType === 'student' ? 'student' : regStaffRole,
+      };
+
+      if (portalType === 'student') {
+        payload.studentId = regStudentId || `STU${Math.floor(1000 + Math.random() * 9000)}`;
+        payload.department = regDepartment;
+        payload.gpa = parseFloat(regGpa) || 8.0;
+        payload.phone = regPhone;
+        payload.graduationYear = parseInt(regGradYear, 10) || 2026;
+      }
+
+      const res = await api.register(payload);
+
+      setSuccessMsg('Account registered successfully! Redirecting...');
+      login(res.user, res.token);
+
+      setTimeout(() => {
+        if (res.role === 'student') {
+          navigate('/student-portal');
+        } else {
+          navigate('/');
+        }
+      }, 1000);
+    } catch (err: any) {
+      setError(err.message || 'Registration failed. Please try again.');
+      captchaRef.current?.refresh();
+      setCaptchaInput('');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleQuickDemoLogin = async (id: string, pass: string, pType: 'admin' | 'student') => {
     setError(null);
+    setSuccessMsg(null);
     setLoading(true);
     setPortalType(pType);
     setIdentifier(id);
     setPassword(pass);
 
-    // Auto-fill active captcha code for 1-click demo test convenience
     const currentCode = captchaRef.current?.getCode() || '';
     setCaptchaInput(currentCode);
 
@@ -118,7 +201,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 md:p-8 bg-background relative overflow-hidden">
-      {/* Background Decorative Ambient Glows */}
+      {/* Background Ambient Glows */}
       <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-indigo-500/10 dark:bg-indigo-500/15 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-purple-500/10 dark:bg-purple-500/15 blur-3xl pointer-events-none" />
 
@@ -136,34 +219,75 @@ export const LoginPage: React.FC = () => {
       </div>
 
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-8 z-10 my-auto items-stretch">
-        {/* Left Column: Login Card with Security CAPTCHA */}
+        {/* Left Column: Login / Registration Form */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           className="lg:col-span-7 flex"
         >
-          <Card className="w-full shadow-xl border-border bg-card flex flex-col justify-between p-8 space-y-6">
+          <Card className="w-full shadow-2xl border-border bg-card flex flex-col justify-between p-7 sm:p-8 space-y-5">
             <div>
               {/* Header Branding */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-black text-base shadow-sm">
-                  TM
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-black text-base shadow-sm">
+                    TM
+                  </div>
+                  <div>
+                    <h2 className="font-extrabold text-xl tracking-tight text-foreground leading-none">
+                      TalentMatrix
+                    </h2>
+                    <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">
+                      Enterprise Placement Platform
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="font-extrabold text-xl tracking-tight text-foreground leading-none">
-                    TalentMatrix
-                  </h2>
-                  <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">
-                    Enterprise Placement Platform
-                  </span>
+
+                {/* Sign In vs Register Toggle Pills */}
+                <div className="flex items-center gap-1 bg-muted p-1 rounded-xl border border-border">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('login');
+                      setError(null);
+                      setSuccessMsg(null);
+                    }}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5',
+                      mode === 'login'
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <LogIn className="w-3.5 h-3.5" /> Sign In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('register');
+                      setError(null);
+                      setSuccessMsg(null);
+                      setRegStudentId(`STU${Math.floor(1000 + Math.random() * 9000)}`);
+                    }}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5',
+                      mode === 'register'
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <UserPlus className="w-3.5 h-3.5" /> Register
+                  </button>
                 </div>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight mt-3">
-                Sign In to Portal
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight mt-2">
+                {mode === 'login' ? 'Sign In to Portal' : 'Create New Account'}
               </h1>
-              <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
-                Select your role to access placement allocations, interview schedules, or candidate assessments.
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-relaxed">
+                {mode === 'login'
+                  ? 'Access placement drives, interview schedules, and algorithmic matching.'
+                  : 'Register as a candidate or staff coordinator for the 2026 placement cycle.'}
               </p>
             </div>
 
@@ -173,12 +297,14 @@ export const LoginPage: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setPortalType('student');
-                  setIdentifier('STU1001');
-                  setPassword('student123');
+                  if (mode === 'login') {
+                    setIdentifier('STU1001');
+                    setPassword('student123');
+                  }
                   setError(null);
                 }}
                 className={cn(
-                  'py-2.5 px-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer select-none',
+                  'py-2 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer select-none',
                   portalType === 'student'
                     ? 'bg-card text-foreground shadow-sm border border-border/80'
                     : 'text-muted-foreground hover:text-foreground'
@@ -192,12 +318,14 @@ export const LoginPage: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setPortalType('admin');
-                  setIdentifier('admin@talentmatrix.edu');
-                  setPassword('admin123');
+                  if (mode === 'login') {
+                    setIdentifier('admin@talentmatrix.edu');
+                    setPassword('admin123');
+                  }
                   setError(null);
                 }}
                 className={cn(
-                  'py-2.5 px-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer select-none',
+                  'py-2 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer select-none',
                   portalType === 'admin'
                     ? 'bg-card text-foreground shadow-sm border border-border/80'
                     : 'text-muted-foreground hover:text-foreground'
@@ -208,94 +336,354 @@ export const LoginPage: React.FC = () => {
               </button>
             </div>
 
-            {/* Error Banner */}
+            {/* Notifications */}
             {error && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm font-semibold flex items-center gap-2.5"
+                className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs sm:text-sm font-semibold flex items-center gap-2.5"
               >
-                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span>{error}</span>
               </motion.div>
             )}
 
-            {/* Login Form with CAPTCHA */}
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-2">
-                  {portalType === 'student' ? 'Student ID or University Email' : 'Staff Email Address'}
-                </label>
-                <div className="relative">
-                  <Input
-                    type="text"
-                    value={identifier}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIdentifier(e.target.value)}
-                    placeholder={portalType === 'student' ? 'e.g. STU1001 or student@university.edu' : 'e.g. admin@talentmatrix.edu'}
-                    className="pl-10"
-                    required
-                  />
-                  <User className="w-5 h-5 text-muted-foreground absolute left-3.5 top-3 pointer-events-none" />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="pl-10 font-mono tracking-widest"
-                    required
-                  />
-                  <KeyRound className="w-5 h-5 text-muted-foreground absolute left-3.5 top-3 pointer-events-none" />
-                </div>
-              </div>
-
-              {/* Security CAPTCHA Verification */}
-              <div className="space-y-2 pt-1 border-t border-border">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <Shield className="w-4 h-4 text-indigo-500" />
-                    Security CAPTCHA Verification
-                  </label>
-                  <span className="text-[11px] text-muted-foreground font-medium">Case-insensitive</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-                  <SecurityCaptcha ref={captchaRef} />
-                  <Input
-                    type="text"
-                    value={captchaInput}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCaptchaInput(e.target.value.toUpperCase())}
-                    placeholder="Enter CAPTCHA code"
-                    className="font-mono text-sm uppercase tracking-widest font-bold"
-                    maxLength={6}
-                    required
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading}
-                variant="brand"
-                size="lg"
-                className="w-full text-base font-bold shadow-lg shadow-indigo-500/20 mt-2 cursor-pointer"
+            {successMsg && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs sm:text-sm font-semibold flex items-center gap-2.5"
               >
-                {loading ? (
-                  'Authenticating...'
-                ) : (
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                <span>{successMsg}</span>
+              </motion.div>
+            )}
+
+            {/* ─── 1. SIGN IN FORM ────────────────────────────────────────── */}
+            {mode === 'login' && (
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                    {portalType === 'student' ? 'Student ID or University Email' : 'Staff Email Address'}
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      value={identifier}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIdentifier(e.target.value)}
+                      placeholder={portalType === 'student' ? 'e.g. STU1001 or student@university.edu' : 'e.g. admin@talentmatrix.edu'}
+                      className="pl-10 text-sm"
+                      required
+                    />
+                    <User className="w-4 h-4 text-muted-foreground absolute left-3.5 top-3 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type="password"
+                      value={password}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="pl-10 font-mono tracking-widest text-sm"
+                      required
+                    />
+                    <KeyRound className="w-4 h-4 text-muted-foreground absolute left-3.5 top-3 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Security CAPTCHA */}
+                <div className="space-y-2 pt-1 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Shield className="w-4 h-4 text-indigo-500" />
+                      Security CAPTCHA
+                    </label>
+                    <span className="text-[11px] text-muted-foreground font-medium">Case-insensitive</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                    <SecurityCaptcha ref={captchaRef} />
+                    <Input
+                      type="text"
+                      value={captchaInput}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCaptchaInput(e.target.value.toUpperCase())}
+                      placeholder="Enter code"
+                      className="font-mono text-sm uppercase tracking-widest font-bold text-center"
+                      maxLength={6}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  variant="brand"
+                  size="lg"
+                  className="w-full text-sm sm:text-base font-bold shadow-lg shadow-indigo-500/20 mt-1 cursor-pointer"
+                >
+                  {loading ? (
+                    'Authenticating...'
+                  ) : (
+                    <>
+                      Enter {portalType === 'student' ? 'Student Portal' : 'Command Center'} <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+
+                <div className="text-center pt-1 text-xs text-muted-foreground">
+                  Don't have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('register');
+                      setError(null);
+                      setSuccessMsg(null);
+                    }}
+                    className="text-primary font-bold hover:underline cursor-pointer"
+                  >
+                    Register new candidate / staff
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* ─── 2. REGISTRATION FORM ────────────────────────────────────── */}
+            {mode === 'register' && (
+              <form onSubmit={handleRegister} className="space-y-3.5 max-h-[480px] overflow-y-auto pr-1">
+                {/* Full Name & Email */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                      Full Name *
+                    </label>
+                    <div className="relative">
+                      <Input
+                        type="text"
+                        value={regName}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegName(e.target.value)}
+                        placeholder="e.g. Rohan Gupta"
+                        className="pl-9 text-sm"
+                        required
+                      />
+                      <User className="w-4 h-4 text-muted-foreground absolute left-3 top-3 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                      Institutional Email *
+                    </label>
+                    <div className="relative">
+                      <Input
+                        type="email"
+                        value={regEmail}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegEmail(e.target.value)}
+                        placeholder="user@university.edu"
+                        className="pl-9 text-sm"
+                        required
+                      />
+                      <Mail className="w-4 h-4 text-muted-foreground absolute left-3 top-3 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Candidate Specific Fields */}
+                {portalType === 'student' && (
                   <>
-                    Enter {portalType === 'student' ? 'Student Portal' : 'Command Center'} <ArrowRight className="w-5 h-5 ml-2" />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                          Student ID *
+                        </label>
+                        <Input
+                          type="text"
+                          value={regStudentId}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegStudentId(e.target.value.toUpperCase())}
+                          placeholder="STU1080"
+                          className="font-mono text-xs uppercase"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                          Department *
+                        </label>
+                        <select
+                          value={regDepartment}
+                          onChange={(e) => setRegDepartment(e.target.value)}
+                          className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          <option value="CSE">CSE (Computer Science)</option>
+                          <option value="IT">IT (Information Tech)</option>
+                          <option value="ECE">ECE (Electronics)</option>
+                          <option value="AIDS">AIDS (AI & Data Science)</option>
+                          <option value="ME">ME (Mechanical)</option>
+                          <option value="EEE">EEE (Electrical)</option>
+                          <option value="CE">CE (Civil)</option>
+                          <option value="CHE">CHE (Chemical)</option>
+                          <option value="MBA">MBA</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                          Current GPA *
+                        </label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="5.0"
+                          max="10.0"
+                          value={regGpa}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegGpa(e.target.value)}
+                          placeholder="8.50"
+                          className="font-mono text-xs"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                          Graduation Year
+                        </label>
+                        <Input
+                          type="number"
+                          value={regGradYear}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegGradYear(e.target.value)}
+                          placeholder="2026"
+                          className="font-mono text-xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                          Phone Number
+                        </label>
+                        <Input
+                          type="tel"
+                          value={regPhone}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegPhone(e.target.value)}
+                          placeholder="+91 98765 43210"
+                          className="text-xs"
+                        />
+                      </div>
+                    </div>
                   </>
                 )}
-              </Button>
-            </form>
+
+                {/* Staff Specific Fields */}
+                {portalType === 'admin' && (
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                      Staff Role Assignment *
+                    </label>
+                    <select
+                      value={regStaffRole}
+                      onChange={(e) => setRegStaffRole(e.target.value)}
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="coordinator">Department Placement Coordinator</option>
+                      <option value="admin">T&P Officer / Administrator</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Password & Confirm Password */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                      Password *
+                    </label>
+                    <Input
+                      type="password"
+                      value={regPassword}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegPassword(e.target.value)}
+                      placeholder="Min 6 characters"
+                      className="text-xs font-mono"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                      Confirm Password *
+                    </label>
+                    <Input
+                      type="password"
+                      value={regConfirmPassword}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRegConfirmPassword(e.target.value)}
+                      placeholder="Re-enter password"
+                      className="text-xs font-mono"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Security CAPTCHA */}
+                <div className="space-y-1.5 pt-1 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Shield className="w-4 h-4 text-indigo-500" />
+                      Security CAPTCHA
+                    </label>
+                    <span className="text-[11px] text-muted-foreground font-medium">Case-insensitive</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                    <SecurityCaptcha ref={captchaRef} />
+                    <Input
+                      type="text"
+                      value={captchaInput}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCaptchaInput(e.target.value.toUpperCase())}
+                      placeholder="Enter code"
+                      className="font-mono text-sm uppercase tracking-widest font-bold text-center"
+                      maxLength={6}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  variant="brand"
+                  size="lg"
+                  className="w-full text-sm sm:text-base font-bold shadow-lg shadow-indigo-500/20 mt-1 cursor-pointer"
+                >
+                  {loading ? (
+                    'Registering Account...'
+                  ) : (
+                    <>
+                      Complete Registration & Enter <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+
+                <div className="text-center pt-1 text-xs text-muted-foreground">
+                  Already have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('login');
+                      setError(null);
+                      setSuccessMsg(null);
+                    }}
+                    className="text-primary font-bold hover:underline cursor-pointer"
+                  >
+                    Sign In here
+                  </button>
+                </div>
+              </form>
+            )}
           </Card>
         </motion.div>
 

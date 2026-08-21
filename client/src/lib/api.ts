@@ -23,6 +23,8 @@ export const api = {
   // Auth & Multi-Role Personas
   login: (data: { identifier?: string; email?: string; password?: string; role?: string }) =>
     request<any>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  register: (data: any) =>
+    request<any>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   getMe: () => request<any>('/auth/me'),
   getUsers: () => request<any>('/auth/users'),
   getDemoAccounts: () => request<any>('/auth/demo-accounts'),
