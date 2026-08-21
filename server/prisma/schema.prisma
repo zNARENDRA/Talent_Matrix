@@ -1,0 +1,514 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─── Users & Auth ───────────────────────────────────────────────
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("admin") // super_admin, admin, coordinator, recruiter, reviewer
+  avatar       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  auditLogs    AuditLog[]
+}
+
+// ─── Recruitment Cycles ─────────────────────────────────────────
+model RecruitmentCycle {
+  id           String   @id @default(uuid())
+  academicYear String   @unique // e.g. "2024-25", "2025-26", "2026-27"
+  startDate    DateTime
+  endDate      DateTime
+  status       String   @default("ACTIVE") // DRAFT, ACTIVE, APPLICATIONS_OPEN, APPLICATIONS_LOCKED, ALLOCATION_RUNNING, ALLOCATION_LOCKED, COMPLETED, ARCHIVED
+  description  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  students          Student[]
+  recruitmentDrives RecruitmentDrive[]
+  allocationRuns    AllocationRun[]
+  selectionLogs     SelectionLog[]
+}
+
+// ─── Department Management ──────────────────────────────────────
+model Department {
+  id        String   @id @default(uuid())
+  code      String   @unique // CSE, IT, ECE, EEE, ME, CE, CHE, MBA, AIDS
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  students  Student[]
+}
+
+// ─── Skill Management ───────────────────────────────────────────
+model Skill {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  category  String   @default("General") // Programming, Framework, Database, Cloud, Core_CS, AI_ML, SoftSkills
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  studentSkills      StudentSkill[]
+  driveRequirements  CompanySkillRequirement[]
+}
+
+model StudentSkill {
+  id           String   @id @default(uuid())
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  skillId      String
+  skill        Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  proficiency  Float    @default(70.0) // 0 - 100
+  isVerified   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([studentId, skillId])
+}
+
+model CompanySkillRequirement {
+  id             String           @id @default(uuid())
+  driveId        String
+  drive          RecruitmentDrive @relation(fields: [driveId], references: [id], onDelete: Cascade)
+  skillId        String
+  skill          Skill            @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  isRequired     Boolean          @default(true) // true = mandatory/required, false = preferred
+  weight         Float            @default(1.0)  // 1.0 - 5.0
+  minProficiency Float            @default(50.0) // 0 - 100
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([driveId, skillId])
+}
+
+// ─── Students ───────────────────────────────────────────────────
+model Student {
+  id                 String            @id @default(uuid())
+  studentId          String            @unique  // e.g. STU1001
+  name               String
+  email              String
+  phone              String?
+  department         String            // CSE, IT, ECE, ME, EE, AIDS
+  departmentId       String?
+  deptRef            Department?       @relation(fields: [departmentId], references: [id])
+  recruitmentCycleId String?
+  cycle              RecruitmentCycle? @relation(fields: [recruitmentCycleId], references: [id])
+  gpa                Float
+  skills             String            // JSON array fallback
+  graduationYear     Int
+  status             String            @default("registered") // registered, eligible, placed, opted_out
+  placementOutcome   String            @default("UNALLOCATED") // PLACED, HIGHER_STUDIES, OFF_CAMPUS, NOT_PLACED, UNALLOCATED
+  resumeUrl          String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  studentSkills      StudentSkill[]
+  applications       Application[]
+  offers             Offer[]
+  preferences        StudentPreference[]
+  interviews         Interview[]
+  assessments        AssessmentSession[]
+  recruiterScores    RecruiterScore[]
+  selectionLogs      SelectionLog[]
+}
+
+// ─── Companies ──────────────────────────────────────────────────
+model Company {
+  id               String   @id @default(uuid())
+  name             String
+  industry         String
+  logo             String?
+  website          String?
+  description      String?
+  contactName      String?
+  contactEmail     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  recruitmentDrives RecruitmentDrive[]
+}
+
+// ─── Recruitment Drives ─────────────────────────────────────────
+model RecruitmentDrive {
+  id                 String            @id @default(uuid())
+  companyId          String
+  company            Company           @relation(fields: [companyId], references: [id])
+  recruitmentCycleId String?
+  cycle              RecruitmentCycle? @relation(fields: [recruitmentCycleId], references: [id])
+  role               String
+  packageLpa         Float             // LPA
+  jobType            String            // full_time, internship, ppo
+  offerTier          String            // DREAM, CORE, MASS / super_dream, dream, core, standard
+  eligibleDepts      String            // JSON array: ["CSE", "IT"] or ["ALL_DEPARTMENTS"]
+  minGpa             Float
+  graduationYears    String            @default("[2026]") // JSON array e.g. "[2025, 2026]"
+  requiredSkills     String            // JSON array fallback
+  openPositions      Int               // Quota
+  filledPositions    Int               @default(0)
+  selectionCriteria  String?           // JSON: { skillMatch: 0.4, recruiterScore: 0.3, studentPref: 0.2, gpa: 0.1 }
+  applicationDeadline DateTime?
+  status             String            @default("open") // draft, open, in_progress, completed, cancelled
+  season             String            @default("2026")
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  skillRequirements  CompanySkillRequirement[]
+  applications       Application[]
+  offers             Offer[]
+  interviewRounds    InterviewRound[]
+  companyPreferences CompanyPreference[]
+  allocationResults  AllocationResult[]
+  recruiterScores    RecruiterScore[]
+  selectionLogs      SelectionLog[]
+}
+
+// ─── Recruiter Scoring ──────────────────────────────────────────
+model RecruiterScore {
+  id             String           @id @default(uuid())
+  studentId      String
+  student        Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  driveId        String
+  drive          RecruitmentDrive @relation(fields: [driveId], references: [id], onDelete: Cascade)
+  score          Float            // 0 - 100 overall
+  technicalScore Float?           // 0 - 100
+  softSkillScore Float?           // 0 - 100
+  evaluatedBy    String?          // Evaluator name / ID
+  notes          String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([studentId, driveId])
+}
+
+// ─── Selection Logs & Deselection Audit ─────────────────────────
+model SelectionLog {
+  id            String            @id @default(uuid())
+  studentId     String
+  student       Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  driveId       String
+  drive         RecruitmentDrive  @relation(fields: [driveId], references: [id], onDelete: Cascade)
+  cycleId       String?
+  cycle         RecruitmentCycle? @relation(fields: [cycleId], references: [id])
+  decision      String            // APPLIED, ELIGIBLE, INELIGIBLE, SHORTLISTED, NOT_SHORTLISTED, SELECTED, DESELECTED, PROVISIONAL, FINAL_OFFER, REJECTED, WAITLISTED, RELEASED, WITHDRAWN, UNALLOCATED
+  reason        String?           // GPA_BELOW_CUTOFF, SKILL_REQUIREMENT_NOT_MET, RECRUITER_SCORE_BELOW_CUTOFF, SHORTLIST_CAP_REACHED, COMPANY_DECISION, TIER_UPGRADE_RELEASED, WITHDRAWN
+  score         Float?
+  cutoff        Float?
+  previousState String?
+  newState      String?
+  source        String            @default("SYSTEM") // SYSTEM, TPO_OVERRIDE, RECRUITER, ALLOCATION_ENGINE
+  metadata      String?           // JSON
+  createdAt     DateTime          @default(now())
+}
+
+// ─── Applications ───────────────────────────────────────────────
+model Application {
+  id            String           @id @default(uuid())
+  studentId     String
+  student       Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  driveId       String
+  drive         RecruitmentDrive @relation(fields: [driveId], references: [id], onDelete: Cascade)
+  status        String           @default("applied") // applied, eligible, ineligible, shortlisted, not_shortlisted, selected, deselected, assessment, interview, offered, rejected, withdrawn
+  appliedAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@unique([studentId, driveId])
+}
+
+// ─── Offers ─────────────────────────────────────────────────────
+model Offer {
+  id          String           @id @default(uuid())
+  studentId   String
+  student     Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  driveId     String
+  drive       RecruitmentDrive @relation(fields: [driveId], references: [id], onDelete: Cascade)
+  tier        String           // DREAM, CORE, MASS, super_dream, dream, core, standard
+  packageLpa  Float
+  status      String           @default("pending") // pending, accepted, rejected, locked, released, expired
+  reason      String?          // explanation for status
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([studentId, driveId])
+}
+
+// ─── Offer Policies ─────────────────────────────────────────────
+model OfferPolicy {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  tier        String   // The tier this policy applies to
+  rules       String   // JSON: { blockLowerTiers: true, allowUpgrade: true, ... }
+  priority    Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ─── Preferences ────────────────────────────────────────────────
+model StudentPreference {
+  id        String   @id @default(uuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  driveId   String
+  rank      Int      // 1 = most preferred
+  createdAt DateTime @default(now())
+
+  @@unique([studentId, driveId])
+}
+
+model CompanyPreference {
+  id        String           @id @default(uuid())
+  driveId   String
+  drive     RecruitmentDrive @relation(fields: [driveId], references: [id], onDelete: Cascade)
+  studentId String
+  rank      Int
+  score     Float?           // optional composite score
+  createdAt DateTime         @default(now())
+
+  @@unique([driveId, studentId])
+}
+
+// ─── Allocation Engine & Runs ───────────────────────────────────
+model AllocationRun {
+  id                    String            @id @default(uuid())
+  season                String            @default("2026")
+  recruitmentCycleId    String?
+  cycle                 RecruitmentCycle? @relation(fields: [recruitmentCycleId], references: [id])
+  status                String            @default("SUCCESS") // RUNNING, SUCCESS, FAILED, CANCELLED, SIMULATION
+  isSimulation          Boolean           @default(false)
+  totalStudents         Int               @default(0)
+  totalCompanies        Int               @default(0)
+  totalMatches          Int               @default(0)
+  totalConflicts        Int               @default(0)
+  totalUnallocated      Int               @default(0)
+  cascadeCount          Int               @default(0)
+  blockingPairCount     Int               @default(0)
+  configurationSnapshot String?           // JSON
+  metrics               String?           // JSON
+  triggeredBy           String?           // User email or "system"
+  startedAt             DateTime?
+  completedAt           DateTime?
+  createdAt             DateTime          @default(now())
+
+  results               AllocationResult[]
+  conflicts             AllocationConflict[]
+  events                AllocationEvent[]
+}
+
+model AllocationResult {
+  id          String           @id @default(uuid())
+  runId       String
+  run         AllocationRun    @relation(fields: [runId], references: [id], onDelete: Cascade)
+  studentId   String
+  driveId     String
+  drive       RecruitmentDrive @relation(fields: [driveId], references: [id], onDelete: Cascade)
+  status      String           // matched, unmatched, conflict, released, upgraded
+  reason      String?
+  createdAt   DateTime         @default(now())
+}
+
+model AllocationConflict {
+  id           String        @id @default(uuid())
+  runId        String
+  run          AllocationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  studentId    String
+  driveId      String
+  conflictType String        // duplicate_assignment, tier_violation, over_allocation, circular, eligibility_violation
+  description  String
+  resolution   String?       // suggested resolution
+  resolved     Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+}
+
+model AllocationEvent {
+  id             String        @id @default(uuid())
+  runId          String
+  run            AllocationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  studentId      String
+  driveId        String
+  eventType      String        // PROPOSAL, PROVISIONAL_ACCEPTANCE, PROVISIONAL_REJECTION, TIER_UPGRADE, OFFER_RELEASE, CASCADE_STARTED, CASCADE_CONTINUED, FINAL_OFFER, WAITLISTED, UNALLOCATED
+  tier           String?       // DREAM, CORE, MASS
+  reason         String?
+  recruiterScore Float?
+  skillScore     Float?
+  preferenceRank Int?
+  quotaSnapshot  Int?
+  metadata       String?       // JSON
+  createdAt      DateTime      @default(now())
+}
+
+// ─── Recruitment Intelligence Crawler ───────────────────────────
+model CrawlerSource {
+  id          String       @id @default(uuid())
+  name        String
+  url         String
+  status      String       @default("IDLE") // IDLE, CRAWLING, SUCCESS, ERROR
+  enabled     Boolean      @default(true)
+  lastCrawl   DateTime?
+  nextCrawl   DateTime?
+  frequency   String       @default("DAILY") // HOURLY, DAILY, WEEKLY
+  errorLog    String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  crawledJobs CrawledJob[]
+}
+
+model CrawledJob {
+  id               String         @id @default(uuid())
+  sourceId         String?
+  source           CrawlerSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  companyName      String
+  jobTitle         String
+  jobDescription   String
+  requiredSkills   String         // JSON array of strings
+  preferredSkills  String         // JSON array of strings
+  location         String?
+  experience       String?
+  packageLpa       Float?
+  deadline         DateTime?
+  sourceUrl        String?
+  publishedDate    DateTime?
+  status           String         @default("NEW") // NEW, REVIEWED, CONVERTED_TO_DRIVE, ARCHIVED
+  convertedDriveId String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+// ─── Interview Scheduling ───────────────────────────────────────
+model InterviewRound {
+  id          String           @id @default(uuid())
+  driveId     String
+  drive       RecruitmentDrive @relation(fields: [driveId], references: [id], onDelete: Cascade)
+  roundNumber Int
+  roundType   String           // technical, hr, coding, group_discussion, system_design
+  duration    Int              // minutes
+  createdAt   DateTime         @default(now())
+
+  interviews  Interview[]
+}
+
+model InterviewPanel {
+  id          String   @id @default(uuid())
+  name        String
+  location    String?
+  meetingLink String?
+  capacity    Int      @default(1)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  slots       InterviewSlot[]
+  interviews  Interview[]
+}
+
+model InterviewSlot {
+  id          String         @id @default(uuid())
+  panelId     String
+  panel       InterviewPanel @relation(fields: [panelId], references: [id], onDelete: Cascade)
+  startTime   DateTime
+  endTime     DateTime
+  isBooked    Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+
+  interviews  Interview[]
+}
+
+model Interview {
+  id          String         @id @default(uuid())
+  studentId   String
+  student     Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  roundId     String
+  round       InterviewRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  panelId     String
+  panel       InterviewPanel @relation(fields: [panelId], references: [id], onDelete: Cascade)
+  slotId      String?
+  slot        InterviewSlot? @relation(fields: [slotId], references: [id])
+  scheduledAt DateTime
+  duration    Int            // minutes
+  status      String         @default("scheduled") // scheduled, in_progress, completed, cancelled, rescheduled, delayed
+  feedback    String?
+  score       Float?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+// ─── Coding Assessments ─────────────────────────────────────────
+model AssessmentSession {
+  id                String   @id @default(uuid())
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  driveId           String?
+  assessmentName    String
+  startedAt         DateTime
+  endedAt           DateTime?
+  status            String   @default("in_progress") // in_progress, completed, under_review, reviewed
+  authenticityScore Float    @default(100)
+  riskLevel         String   @default("normal") // normal, low, moderate, high, critical
+  totalEvents       Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  events            TelemetryEvent[]
+  alerts            AnomalyAlert[]
+}
+
+model TelemetryEvent {
+  id          String            @id @default(uuid())
+  sessionId   String
+  session     AssessmentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  eventType   String            // keystroke, paste, tab_blur, tab_focus, code_insert, submission, idle
+  timestamp   DateTime
+  data        String            // JSON: event-specific data
+  createdAt   DateTime          @default(now())
+}
+
+model AnomalyAlert {
+  id          String            @id @default(uuid())
+  sessionId   String
+  session     AssessmentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  severity    String            // low, moderate, high, critical
+  signals     String            // JSON array of contributing signals
+  score       Float             // risk score contribution
+  description String
+  status      String            @default("new") // new, reviewed, escalated, dismissed
+  reviewedBy  String?
+  reviewNote  String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+// ─── Notifications ──────────────────────────────────────────────
+model Notification {
+  id        String   @id @default(uuid())
+  type      String   // anomaly, scheduling_conflict, allocation, offer, deadline, system
+  title     String
+  message   String
+  severity  String   @default("info") // info, warning, error, critical
+  isRead    Boolean  @default(false)
+  actionUrl String?
+  createdAt DateTime @default(now())
+}
+
+// ─── Audit Logs ─────────────────────────────────────────────────
+model AuditLog {
+  id            String   @id @default(uuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id])
+  action        String   // create, update, delete, allocation_run, override, review, login
+  entity        String   // student, company, offer, interview, anomaly, etc.
+  entityId      String?
+  previousState String?  // JSON
+  newState      String?  // JSON
+  description   String
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+}
