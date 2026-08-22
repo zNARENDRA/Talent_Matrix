@@ -39,7 +39,7 @@ export const LoginPage: React.FC = () => {
   const [regGpa, setRegGpa] = useState('8.5');
   const [regPhone, setRegPhone] = useState('');
   const [regGradYear, setRegGradYear] = useState('2026');
-  const [regStaffRole, setRegStaffRole] = useState('coordinator');
+  const [regStaffRole, setRegStaffRole] = useState('admin');
 
   // CAPTCHA state
   const [captchaInput, setCaptchaInput] = useState('');
@@ -591,8 +591,8 @@ export const LoginPage: React.FC = () => {
                       onChange={(e) => setRegStaffRole(e.target.value)}
                       className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
                     >
-                      <option value="coordinator">Department Placement Coordinator</option>
                       <option value="admin">T&P Officer / Administrator</option>
+                      <option value="super_admin">Head TPO / Super Administrator</option>
                     </select>
                   </div>
                 )}
@@ -724,25 +724,7 @@ export const LoginPage: React.FC = () => {
                 </p>
               </div>
 
-              {/* Persona 2: Coordinator */}
-              <div
-                onClick={() => handleQuickDemoLogin('coordinator@talentmatrix.edu', 'coord123', 'admin')}
-                className="p-3.5 rounded-xl bg-card hover:bg-muted/60 border border-border hover:border-purple-500/50 cursor-pointer transition-all hover:scale-[1.01] shadow-xs space-y-1 group"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-sm text-foreground flex items-center gap-2">
-                    <Users className="w-4 h-4 text-purple-500" /> Prof. Anita Sharma
-                  </span>
-                  <Badge variant="purple" className="text-xs font-bold font-mono">
-                    COORDINATOR
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Drive management, interview panels &amp; scheduling logs
-                </p>
-              </div>
-
-              {/* Persona 3: Student 1 */}
+              {/* Persona 2: Student 1 */}
               <div
                 onClick={() => handleQuickDemoLogin(s1.studentId, 'student123', 'student')}
                 className="p-3.5 rounded-xl bg-card hover:bg-muted/60 border border-border hover:border-emerald-500/50 cursor-pointer transition-all hover:scale-[1.01] shadow-xs space-y-1 group"
