@@ -8,7 +8,8 @@ import {
   Code2, Clock, ShieldCheck, AlertTriangle, Eye, Activity,
   Clipboard, MonitorX, Keyboard, ChevronRight, Terminal, ArrowUpRight,
   RefreshCw, CheckCircle2, XCircle, Sparkles, User, Copy, Check,
-  FileCode, Play, Award, Zap, AlertCircle, ShieldAlert, BrainCircuit
+  FileCode, Play, Award, Zap, AlertCircle, ShieldAlert, BrainCircuit,
+  Trash2, Loader2
 } from 'lucide-react';
 
 const riskColors: Record<string, string> = {
@@ -38,6 +39,7 @@ export const AssessmentsPage: React.FC = () => {
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState<boolean>(false);
   const [aiAnalysisResult, setAiAnalysisResult] = useState<any>(null);
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
 
   const { data: sessionDetail, loading: detailLoading, refetch: refetchDetail } = useApi(
     () => (selectedSessionId ? api.getAssessment(selectedSessionId) : Promise.resolve(null)),
@@ -90,6 +92,26 @@ export const AssessmentsPage: React.FC = () => {
       alert('Failed to generate AI report: ' + err.message);
     } finally {
       setIsGeneratingAI(false);
+    }
+  };
+
+  const handleDeleteSession = async (sessionId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm('Are you sure you want to delete this candidate assessment record? This will permanently remove its evaluation results, code, telemetry events, and proctor anomaly alerts.')) {
+      return;
+    }
+
+    setDeletingSessionId(sessionId);
+    try {
+      await api.deleteAssessment(sessionId);
+      if (selectedSessionId === sessionId) {
+        setSelectedSessionId(null);
+      }
+      refetch();
+    } catch (err: any) {
+      alert('Failed to delete assessment record: ' + err.message);
+    } finally {
+      setDeletingSessionId(null);
     }
   };
 
@@ -192,7 +214,7 @@ export const AssessmentsPage: React.FC = () => {
                     <th>Authenticity</th>
                     <th>Integrity Risk</th>
                     <th>Status</th>
-                    <th></th>
+                    <th className="text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -280,8 +302,22 @@ export const AssessmentsPage: React.FC = () => {
                           </span>
                         </td>
 
-                        <td>
-                          <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? 'text-indigo-400 translate-x-1' : 'text-zinc-500'}`} />
+                        <td className="text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={(e) => handleDeleteSession(session.id, e)}
+                              disabled={deletingSessionId === session.id}
+                              className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                              title="Delete assessment record"
+                            >
+                              {deletingSessionId === session.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-400" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                            <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? 'text-indigo-400 translate-x-1' : 'text-zinc-500'}`} />
+                          </div>
                         </td>
                       </tr>
                     );
@@ -312,12 +348,26 @@ export const AssessmentsPage: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setSelectedSessionId(null)}
-                className="text-zinc-400 hover:text-white p-1 cursor-pointer font-bold"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => handleDeleteSession(sessionDetail.id)}
+                  disabled={deletingSessionId === sessionDetail.id}
+                  className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                  title="Delete this assessment record"
+                >
+                  {deletingSessionId === sessionDetail.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-rose-400" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setSelectedSessionId(null)}
+                  className="text-zinc-400 hover:text-white p-1 cursor-pointer font-bold"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Score & Verdict Card */}

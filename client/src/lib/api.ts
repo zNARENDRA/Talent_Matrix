@@ -174,6 +174,8 @@ export const api = {
     request<any>(`/assessments/${sessionId}/telemetry`, { method: 'POST', body: JSON.stringify(data) }),
   submitAssessment: (sessionId: string, data: any) =>
     request<any>(`/assessments/${sessionId}/submit`, { method: 'POST', body: JSON.stringify(data) }),
+  deleteAssessment: (id: string) =>
+    request<any>(`/assessments/${id}`, { method: 'DELETE' }),
   getAssessmentAIAnalysis: (sessionId: string) => request<any>(`/assessments/${sessionId}/ai-analysis`),
 
   // Anomalies

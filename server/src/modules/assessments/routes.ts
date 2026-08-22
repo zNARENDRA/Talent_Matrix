@@ -141,6 +141,38 @@ assessmentsRouter.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// DELETE /api/assessments/:id - Delete an assessment session and associated telemetry/alerts
+assessmentsRouter.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const sessionId = req.params.id;
+    const session = await prisma.assessmentSession.findUnique({
+      where: { id: sessionId },
+      include: { student: true },
+    });
+
+    if (!session) return res.status(404).json({ error: 'Assessment session not found.' });
+
+    await prisma.$transaction(async (tx) => {
+      await tx.telemetryEvent.deleteMany({ where: { sessionId } });
+      await tx.anomalyAlert.deleteMany({ where: { sessionId } });
+      await tx.assessmentSession.delete({ where: { id: sessionId } });
+
+      await tx.auditLog.create({
+        data: {
+          action: 'assessment_deleted',
+          entity: 'assessment',
+          entityId: sessionId,
+          description: `Deleted assessment record "${session.assessmentName}" for candidate ${session.student?.name} (${session.student?.studentId}).`,
+        },
+      });
+    });
+
+    res.json({ success: true, message: 'Assessment session record deleted successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/assessments/:id/telemetry - Ingest real telemetry event from candidate editor
 assessmentsRouter.post('/:id/telemetry', async (req: Request, res: Response) => {
   try {
