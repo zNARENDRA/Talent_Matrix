@@ -22,12 +22,12 @@ TalentMatrix is a production-grade full-stack web platform built for university 
 - **Real-Time Dynamic Rescheduling**: When a panel is delayed (e.g. Panel D delayed by 20 mins), the engine cascades schedule adjustments, finds alternate conflict-free slots, and provides 1-click schedule updates.
 - **Utilization Heatmaps & Metrics**: Tracks total slots, booked slots, idle panel hours, and average interview duration.
 
-### 3. Assessment Integrity, Anomaly Center & Live Candidate Sandbox
-- **Live Candidate Coding Sandbox (`/candidate-sandbox`)**: Interactive code execution environment capturing real-time browser telemetry (keystroke flight intervals, paste counts and byte payloads, window blur/tab defocus durations, code injection bursts).
+### 3. Assessment Integrity, Anomaly Center & Full-Screen Coding IDE
+- **Full-Screen Technical Assessment IDE (`/candidate-sandbox`)**: LeetCode-grade coding environment with multi-problem selector (Cred, Google, Uber, Amazon challenges), TypeScript/JavaScript/Python multi-language runner, and inline constraints without tab friction.
+- **MediaPipe BlazeFace Live Computer Vision Proctor**: Real-time neural network face tracking, multi-face breach detection, face absence alarms, and interactive **Camera Diagnostic & Anomaly Inspection Modal**.
+- **Security CAPTCHA & Candidate Registration Portal (`/login`)**: Alphanumeric distortion CAPTCHA with audio speech synthesis and multi-role registration for Students and Department Coordinators.
 - **Socket.IO Real-Time Stream**: Live telemetry events immediately recalculate candidate Code Authenticity Scores (0–100) and broadcast alerts to proctors.
-- **AI Provider Abstraction Layer (`AIService`)**: Integrates with **Google Gemini** (`gemini-1.5-pro`), **OpenAI** (`gpt-4o`), and deterministic mathematical telemetry intelligence (`telemetry-engine-v2.0`). Gracefully reports unconfigured states without fabricating fake results.
 - **Security-Style Anomaly Center (`/anomalies`)**: Triage active alerts by severity (*Critical*, *High*, *Moderate*), inspect candidate telemetry timelines down to the second, and submit human review decisions (*Reviewed*, *Escalated*, *Dismissed*).
-- **Fairness & Privacy by Design**: Emphasizes anomaly indicators as assistive decision-support tools rather than automated punitive measures.
 
 ---
 
