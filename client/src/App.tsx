@@ -71,7 +71,6 @@ function AppLayout() {
             <Route path="/crawler" element={<PageWrapper><Crawler /></PageWrapper>} />
             <Route path="/yearly-reports" element={<PageWrapper><YearlyReports /></PageWrapper>} />
             <Route path="/scheduler" element={<PageWrapper><SchedulerPage /></PageWrapper>} />
-            <Route path="/assessments" element={<PageWrapper><AssessmentsPage /></PageWrapper>} />
             <Route path="/anomalies" element={<PageWrapper><AnomalyCenterPage /></PageWrapper>} />
             <Route path="/analytics" element={<PageWrapper><AnalyticsPage /></PageWrapper>} />
             <Route path="/reports" element={<PageWrapper><ReportsPage /></PageWrapper>} />
@@ -111,6 +110,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         {/* Dedicated Standalone Proctored Examination Sandbox (Edge-to-edge full-screen, no sidebar/topbar) */}
         <Route path="/candidate-sandbox" element={<CandidateAssessment />} />
+        <Route path="/assessments" element={<CandidateAssessment />} />
         <Route path="/*" element={<AppLayout />} />
       </Routes>
     </BrowserRouter>
