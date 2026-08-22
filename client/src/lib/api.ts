@@ -163,6 +163,8 @@ export const api = {
     request<any>('/assessments/start', { method: 'POST', body: JSON.stringify(data) }),
   sendTelemetryEvent: (sessionId: string, data: { eventType: string; data?: any }) =>
     request<any>(`/assessments/${sessionId}/telemetry`, { method: 'POST', body: JSON.stringify(data) }),
+  submitAssessment: (sessionId: string, data: any) =>
+    request<any>(`/assessments/${sessionId}/submit`, { method: 'POST', body: JSON.stringify(data) }),
   getAssessmentAIAnalysis: (sessionId: string) => request<any>(`/assessments/${sessionId}/ai-analysis`),
 
   // Anomalies

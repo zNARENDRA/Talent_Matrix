@@ -235,3 +235,82 @@ assessmentsRouter.get('/:id/ai-analysis', async (req: Request, res: Response) =>
     res.status(500).json({ error: err.message });
   }
 });
+
+// POST /api/assessments/:id/submit - Submit and complete assessment with score and audit log
+assessmentsRouter.post('/:id/submit', async (req: Request, res: Response) => {
+  try {
+    const sessionId = req.params.id;
+    const { problemId, problemTitle, passedCount, totalCount, allPassed, runtimeMs, code } = req.body;
+
+    const session = await prisma.assessmentSession.findUnique({
+      where: { id: sessionId },
+      include: { student: true },
+    });
+
+    if (!session) return res.status(404).json({ error: 'Assessment session not found.' });
+
+    // Record submission telemetry event
+    await prisma.telemetryEvent.create({
+      data: {
+        sessionId,
+        eventType: 'submission',
+        timestamp: new Date(),
+        data: JSON.stringify({
+          problemId,
+          problemTitle,
+          passedCount,
+          totalCount,
+          allPassed,
+          runtimeMs,
+          linesOfCode: code ? code.split('\n').length : 0,
+        }),
+      },
+    });
+
+    // Update session to completed
+    const updatedSession = await prisma.assessmentSession.update({
+      where: { id: sessionId },
+      data: {
+        status: 'completed',
+        endedAt: new Date(),
+      },
+      include: { student: true },
+    });
+
+    // Record Audit Log
+    await prisma.auditLog.create({
+      data: {
+        action: 'submission',
+        entity: 'assessment',
+        entityId: sessionId,
+        description: `Candidate ${session.student.name} (${session.student.studentId}) completed assessment "${session.assessmentName}". Score: ${passedCount}/${totalCount} Passed (${allPassed ? 'Accepted' : 'Failed'}). Authenticity: ${updatedSession.authenticityScore}%. Risk: ${updatedSession.riskLevel.toUpperCase()}.`,
+      },
+    });
+
+    // Emit live WebSocket notification
+    emitTelemetryEvent(sessionId, {
+      id: sessionId,
+      eventType: 'submission_completed',
+      timestamp: new Date(),
+      data: {
+        passedCount,
+        totalCount,
+        allPassed,
+        authenticityScore: updatedSession.authenticityScore,
+        riskLevel: updatedSession.riskLevel,
+      },
+    });
+
+    res.json({
+      success: true,
+      session: updatedSession,
+      passedCount,
+      totalCount,
+      allPassed,
+      authenticityScore: updatedSession.authenticityScore,
+      riskLevel: updatedSession.riskLevel,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});

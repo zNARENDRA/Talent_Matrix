@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { api } from '../lib/api';
 import { getSocket } from '../lib/socket';
 import { initFaceDetector, detectFaces, type FaceDetectionResult } from '../lib/faceDetector';
 import { PROBLEMS_BANK, Problem, TestCase } from '../lib/problems';
 import {
   Play, CheckCircle2, AlertTriangle, ShieldCheck,
-  Send, Clock, ShieldAlert, Sparkles, Terminal, ExternalLink,
-  Camera, CameraOff, Video, UserCheck, AlertCircle, Scan,
-  BookOpen, Check, RotateCcw, Copy, HelpCircle, Building2,
-  ChevronDown, Maximize2, Minimize2, Eye, Loader2
+  Send, Clock, ShieldAlert, Sparkles, Terminal,
+  Camera, Building2, Check, RotateCcw, Copy, Loader2, Video
 } from 'lucide-react';
 
 export const CandidateAssessment: React.FC = () => {
@@ -22,14 +20,7 @@ export const CandidateAssessment: React.FC = () => {
   const [language, setLanguage] = useState<'typescript' | 'javascript' | 'python'>('typescript');
   const [code, setCode] = useState<string>(currentProblem.starterCode.typescript);
 
-  // Active Left Pane Tab
-  const [activeLeftTab, setActiveLeftTab] = useState<'description' | 'constraints'>('description');
-
-  // Bottom Console Tabs
-  const [activeConsoleTab, setActiveConsoleTab] = useState<'testcases' | 'results' | 'telemetry'>('testcases');
-  const [selectedTestCaseIndex, setSelectedTestCaseIndex] = useState<number>(0);
-
-  // Test Runner State
+  // Unified Console Output State (One single output view, no tabs)
   const [isRunningCode, setIsRunningCode] = useState<boolean>(false);
   const [testResults, setTestResults] = useState<TestCase[]>([]);
   const [allPassed, setAllPassed] = useState<boolean | null>(null);
@@ -40,17 +31,14 @@ export const CandidateAssessment: React.FC = () => {
   const [submissionReport, setSubmissionReport] = useState<any>(null);
   const [showSubmitModal, setShowSubmitModal] = useState<boolean>(false);
 
-  // Proctoring & Telemetry
-  const [telemetryLogs, setTelemetryLogs] = useState<{ type: string; details: string; time: string }[]>([]);
+  // Proctoring & Webcam State
   const [cameraActive, setCameraActive] = useState<boolean>(false);
-  const [cameraStatus, setCameraStatus] = useState<'calibrating' | 'face_locked' | 'face_absent' | 'multiple_faces'>('face_locked');
+  const [cameraStatus, setCameraStatus] = useState<'calibrating' | 'face_locked' | 'face_absent' | 'multiple_faces' | 'camera_blocked'>('face_locked');
   const [faceConfidence, setFaceConfidence] = useState<number>(96);
   const [detectedFacesCount, setDetectedFacesCount] = useState<number>(1);
-  const [showWebcamPip, setShowWebcamPip] = useState<boolean>(true);
-  const [isScanningFace, setIsScanningFace] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
 
-  // Timer
+  // 45m Countdown Clock
   const [timeRemaining, setTimeRemaining] = useState<number>(45 * 60);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -59,14 +47,15 @@ export const CandidateAssessment: React.FC = () => {
   const lastKeyTimeRef = useRef<number>(Date.now());
   const blurStartTimeRef = useRef<number | null>(null);
 
+  // Update starter code when problem or language changes
   useEffect(() => {
     setCode(currentProblem.starterCode[language]);
     setTestResults([]);
     setAllPassed(null);
     setExecutionStdout('');
-    setSelectedTestCaseIndex(0);
   }, [selectedProblemId, language]);
 
+  // Timer countdown
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeRemaining((prev) => (prev > 0 ? prev - 1 : 0));
@@ -80,6 +69,7 @@ export const CandidateAssessment: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // 1. Fetch active session
   useEffect(() => {
     api.getAssessments({ limit: '10' }).then((res) => {
       if (res.data && res.data.length > 0) {
@@ -89,6 +79,7 @@ export const CandidateAssessment: React.FC = () => {
     }).catch(console.error);
   }, []);
 
+  // 2. Connect Socket.IO
   useEffect(() => {
     if (!currentSession) return;
     const socket = getSocket();
@@ -108,19 +99,18 @@ export const CandidateAssessment: React.FC = () => {
     };
   }, [currentSession?.id]);
 
+  // 3. Tab Visibility Listeners
   useEffect(() => {
     if (!currentSession) return;
 
     const handleBlur = () => {
       blurStartTimeRef.current = Date.now();
-      logLocalTelemetry('tab_blur', 'Window defocused / tab switched');
     };
 
     const handleFocus = () => {
       if (blurStartTimeRef.current) {
         const durationSec = Math.round((Date.now() - blurStartTimeRef.current) / 1000);
         blurStartTimeRef.current = null;
-        logLocalTelemetry('tab_focus', `Returned to window after ${durationSec}s`);
 
         api.sendTelemetryEvent(currentSession.id, {
           eventType: 'tab_blur',
@@ -137,6 +127,7 @@ export const CandidateAssessment: React.FC = () => {
     };
   }, [currentSession?.id]);
 
+  // 4. Initialize Webcam & AI Face Detection
   useEffect(() => {
     initFaceDetector().catch(() => {});
     startWebcam();
@@ -148,7 +139,7 @@ export const CandidateAssessment: React.FC = () => {
   const startWebcam = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 480 }, height: { ideal: 360 } },
+        video: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 30 } },
         audio: false,
       });
       streamRef.current = stream;
@@ -158,8 +149,8 @@ export const CandidateAssessment: React.FC = () => {
       }
       setCameraActive(true);
       setCameraStatus('face_locked');
-      logLocalTelemetry('webcam', 'Webcam stream connected');
     } catch (err) {
+      console.warn('Webcam start error:', err);
       setCameraActive(false);
     }
   };
@@ -172,13 +163,43 @@ export const CandidateAssessment: React.FC = () => {
     setCameraActive(false);
   };
 
-  const logLocalTelemetry = (type: string, details: string) => {
-    setTelemetryLogs((prev) => [
-      { type, details, time: new Date().toLocaleTimeString() },
-      ...prev.slice(0, 19),
-    ]);
-  };
+  // Perform AI Face Scan periodically
+  useEffect(() => {
+    if (!cameraActive || !currentSession?.id) return;
 
+    const interval = setInterval(async () => {
+      if (!videoRef.current || !canvasRef.current) return;
+      try {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        if (video.readyState < 2) return;
+
+        canvas.width = video.videoWidth || 480;
+        canvas.height = video.videoHeight || 360;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const detection = await detectFaces(video, canvas);
+        setFaceConfidence(detection.confidence);
+        setDetectedFacesCount(detection.faceCount);
+        setCameraStatus(detection.status);
+
+        if (detection.status === 'multiple_faces' || detection.status === 'face_absent') {
+          api.sendTelemetryEvent(currentSession.id, {
+            eventType: detection.status === 'multiple_faces' ? 'webcam_multiple_faces' : 'webcam_face_absence',
+            data: { faceCount: detection.faceCount, timestamp: new Date().toISOString() },
+          }).catch(() => {});
+        }
+      } catch (err) {
+        // Fallback silently
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [cameraActive, currentSession?.id]);
+
+  // Keystrokes & Pastes
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const now = Date.now();
     const flightTimeMs = now - lastKeyTimeRef.current;
@@ -195,7 +216,6 @@ export const CandidateAssessment: React.FC = () => {
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const pastedText = e.clipboardData.getData('text');
     const size = pastedText.length;
-    logLocalTelemetry('paste', `Clipboard paste: ${size} chars`);
 
     if (currentSession) {
       api.sendTelemetryEvent(currentSession.id, {
@@ -205,6 +225,7 @@ export const CandidateAssessment: React.FC = () => {
     }
   };
 
+  // Safe In-Browser Code Execution Sandbox
   const executeCodeSandbox = (userCode: string, testList: TestCase[]): { results: TestCase[]; allPassed: boolean; stdout: string } => {
     const results: TestCase[] = [];
     let stdoutBuffer = '';
@@ -237,7 +258,7 @@ export const CandidateAssessment: React.FC = () => {
           runtimeMs: Math.max(runtimeMs, 0.1),
         });
 
-        stdoutBuffer += `[Case ${tc.id}] (${tc.input}) => ${actualStr} | ${passed ? 'PASSED' : 'FAILED'} (${runtimeMs}ms)\n`;
+        stdoutBuffer += `Case ${tc.id}: Input (${tc.input}) => Output: ${actualStr} [${passed ? 'PASSED' : 'FAILED'}]\n`;
       } catch (err: any) {
         const endTime = performance.now();
         results.push({
@@ -246,7 +267,7 @@ export const CandidateAssessment: React.FC = () => {
           passed: false,
           runtimeMs: Math.round((endTime - startTime) * 100) / 100,
         });
-        stdoutBuffer += `[Case ${tc.id}] Error: ${err.message}\n`;
+        stdoutBuffer += `Case ${tc.id}: Runtime Error - ${err.message}\n`;
       }
     }
 
@@ -254,10 +275,9 @@ export const CandidateAssessment: React.FC = () => {
     return { results, allPassed, stdout: stdoutBuffer };
   };
 
+  // Run Code
   const handleRunCode = () => {
     setIsRunningCode(true);
-    setActiveConsoleTab('results');
-    logLocalTelemetry('run_code', `Executed test cases for ${currentProblem.title}`);
 
     setTimeout(() => {
       const visibleCases = currentProblem.testCases.filter((tc) => !tc.hidden);
@@ -269,6 +289,7 @@ export const CandidateAssessment: React.FC = () => {
     }, 150);
   };
 
+  // Submit Solution (Sends directly to backend DB and telemetry)
   const handleSubmit = async () => {
     if (!currentSession) return;
     setIsSubmitting(true);
@@ -277,18 +298,18 @@ export const CandidateAssessment: React.FC = () => {
       const execution = executeCodeSandbox(code, currentProblem.testCases);
       const passedCount = execution.results.filter((r) => r.passed).length;
       const totalCount = execution.results.length;
+      const runtimeMs = execution.results.reduce((a, b) => a + (b.runtimeMs || 0.5), 0).toFixed(1);
 
-      await api.sendTelemetryEvent(currentSession.id, {
-        eventType: 'submission',
-        data: {
-          problemId: currentProblem.id,
-          passedCount,
-          totalCount,
-          allPassed: execution.allPassed,
-        },
+      // Submit to backend API which updates Database & emits WebSocket events
+      const res = await api.submitAssessment(currentSession.id, {
+        problemId: currentProblem.id,
+        problemTitle: currentProblem.title,
+        passedCount,
+        totalCount,
+        allPassed: execution.allPassed,
+        runtimeMs,
+        code,
       });
-
-      logLocalTelemetry('submission', `Submitted solution: ${passedCount}/${totalCount} Passed`);
 
       setSubmissionReport({
         problemTitle: currentProblem.title,
@@ -296,9 +317,9 @@ export const CandidateAssessment: React.FC = () => {
         passedCount,
         totalCount,
         allPassed: execution.allPassed,
-        runtimeMs: execution.results.reduce((a, b) => a + (b.runtimeMs || 0.5), 0).toFixed(1),
-        authenticityScore: currentSession.authenticityScore ?? 96,
-        riskLevel: currentSession.riskLevel || 'normal',
+        runtimeMs,
+        authenticityScore: res.authenticityScore ?? currentSession.authenticityScore ?? 96,
+        riskLevel: res.riskLevel || currentSession.riskLevel || 'normal',
       });
 
       setShowSubmitModal(true);
@@ -317,12 +338,11 @@ export const CandidateAssessment: React.FC = () => {
 
   return (
     <div className="w-full h-[calc(100vh-3.5rem)] flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden select-none">
-      {/* Hidden processing canvas */}
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* ─── 1. COMPACT UNIFIED TOP TOOLBAR (No floating tiles) ─── */}
+      {/* ─── 1. TOP NAV & CONTROLS TOOLBAR ─── */}
       <div className="h-12 border-b border-zinc-800/80 bg-zinc-900/90 px-4 flex items-center justify-between gap-3 flex-shrink-0">
-        {/* Left: Problem Selector & Badges */}
+        {/* Left: Problem Dropdown & Difficulty */}
         <div className="flex items-center gap-2.5">
           <select
             value={selectedProblemId}
@@ -348,7 +368,7 @@ export const CandidateAssessment: React.FC = () => {
             {currentProblem.difficulty}
           </span>
 
-          <span className="text-[11px] text-zinc-400 font-medium hidden md:flex items-center gap-1">
+          <span className="text-[11px] text-zinc-400 font-medium hidden sm:flex items-center gap-1">
             <Building2 className="w-3.5 h-3.5 text-zinc-500" /> {currentProblem.company}
           </span>
         </div>
@@ -368,9 +388,9 @@ export const CandidateAssessment: React.FC = () => {
           <button
             onClick={handleRunCode}
             disabled={isRunningCode}
-            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold px-3 py-1.5 rounded-lg border border-zinc-700/80 flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold px-3.5 py-1.5 rounded-lg border border-zinc-700/80 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            {isRunningCode ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current text-zinc-300" />}
+            {isRunningCode ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current text-emerald-400" />}
             <span>Run</span>
           </button>
 
@@ -384,70 +404,29 @@ export const CandidateAssessment: React.FC = () => {
           </button>
         </div>
 
-        {/* Right: Live Proctor Indicators & Timer */}
-        <div className="flex items-center gap-3">
-          {/* Proctor Live Pill */}
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700/70 text-xs">
+        {/* Right: Live Proctoring & Countdown Clock */}
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700/70 text-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[11px] font-mono font-bold text-zinc-200">
-              Proctor: {faceConfidence}%
-            </span>
-            <span className="text-zinc-600">|</span>
             <span className="text-[11px] font-mono text-emerald-400 font-bold">
               Auth: {currentSession?.authenticityScore ?? 96}%
             </span>
           </div>
 
-          {/* Countdown Clock */}
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700/70 text-zinc-200 text-xs font-mono font-bold">
             <Clock className="w-3.5 h-3.5 text-amber-400" />
             <span>{formatTime(timeRemaining)}</span>
           </div>
-
-          {/* Toggle Webcam PIP */}
-          <button
-            onClick={() => setShowWebcamPip(!showWebcamPip)}
-            className={`p-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
-              showWebcamPip
-                ? 'bg-purple-600/20 text-purple-300 border-purple-500/40'
-                : 'bg-zinc-800 text-zinc-400 border-zinc-700'
-            }`}
-            title="Toggle Proctor Webcam Preview"
-          >
-            <Video className="w-3.5 h-3.5" />
-          </button>
         </div>
       </div>
 
-      {/* ─── 2. MAIN SPLIT WORKSPACE (Edge-to-Edge 50/50 Layout) ─── */}
+      {/* ─── 2. MAIN SPLIT IDE WORKSPACE ─── */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
-        {/* ─── LEFT PANEL: Problem Statement & Examples (5 cols) ─── */}
+        {/* ─── LEFT PANE: Description & Constraints (No tab switching needed) ─── */}
         <div className="lg:col-span-5 border-r border-zinc-800/80 flex flex-col bg-zinc-950/60 overflow-hidden">
-          {/* Header Tab Bar */}
+          {/* Header Title */}
           <div className="h-9 px-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-900/40">
-            <div className="flex items-center gap-3 text-xs">
-              <button
-                onClick={() => setActiveLeftTab('description')}
-                className={`h-9 font-bold px-1 border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
-                  activeLeftTab === 'description'
-                    ? 'border-primary-500 text-white'
-                    : 'border-transparent text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <BookOpen className="w-3.5 h-3.5" /> Description
-              </button>
-              <button
-                onClick={() => setActiveLeftTab('constraints')}
-                className={`h-9 font-bold px-1 border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
-                  activeLeftTab === 'constraints'
-                    ? 'border-primary-500 text-white'
-                    : 'border-transparent text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <HelpCircle className="w-3.5 h-3.5" /> Constraints &amp; Rules
-              </button>
-            </div>
-
+            <span className="text-xs font-bold text-zinc-300">Problem Details</span>
             <div className="flex items-center gap-1">
               {currentProblem.tags.map((t) => (
                 <span key={t} className="px-1.5 py-0.5 text-[10px] rounded bg-zinc-800 text-zinc-400 font-mono">
@@ -457,72 +436,49 @@ export const CandidateAssessment: React.FC = () => {
             </div>
           </div>
 
-          {/* Tab Content */}
-          <div className="flex-1 p-5 overflow-y-auto space-y-4 text-xs select-text">
-            {activeLeftTab === 'description' && (
-              <>
+          {/* Continuous Description & Constraints (All in one view) */}
+          <div className="flex-1 p-5 overflow-y-auto space-y-5 text-xs select-text">
+            <div>
+              <h1 className="text-base font-bold text-white mb-2">{currentProblem.title}</h1>
+              <p className="text-zinc-300 leading-relaxed whitespace-pre-line text-xs font-normal">
+                {currentProblem.description}
+              </p>
+            </div>
+
+            {/* Constraints directly below (no tabs) */}
+            <div className="pt-3 border-t border-zinc-800/80 space-y-2">
+              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
+                Constraints
+              </span>
+              <ul className="list-disc pl-4 space-y-1.5 text-zinc-300 font-mono text-xs">
+                {currentProblem.constraints.map((c, i) => (
+                  <li key={i}>{c}</li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Quick Reference Example (Clean text without bulky boxes) */}
+            <div className="pt-3 border-t border-zinc-800/80 space-y-2 font-mono text-xs">
+              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block font-sans">
+                Sample Test Case Reference
+              </span>
+              <div className="p-3 rounded-lg bg-zinc-900/90 border border-zinc-800/90 space-y-1 text-xs">
                 <div>
-                  <h1 className="text-base font-bold text-white mb-2">{currentProblem.title}</h1>
-                  <p className="text-zinc-300 leading-relaxed whitespace-pre-line text-xs font-normal">
-                    {currentProblem.description}
-                  </p>
+                  <span className="text-zinc-500 font-sans">Input: </span>
+                  <code className="text-indigo-300 font-semibold">{currentProblem.examples[0].input}</code>
                 </div>
-
-                {/* Structured Examples */}
-                <div className="space-y-3 pt-2">
-                  <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
-                    Examples
-                  </span>
-
-                  {currentProblem.examples.map((ex, idx) => (
-                    <div key={idx} className="p-3 rounded-lg bg-zinc-900 border border-zinc-800/90 font-mono text-xs space-y-1">
-                      <div className="text-zinc-400 font-sans font-bold text-[11px]">Example {idx + 1}:</div>
-                      <div className="text-zinc-300">
-                        <span className="text-zinc-500 font-sans">Input: </span>
-                        <code className="text-indigo-300 font-semibold">{ex.input}</code>
-                      </div>
-                      <div className="text-zinc-300">
-                        <span className="text-zinc-500 font-sans">Output: </span>
-                        <code className="text-emerald-400 font-bold">{ex.output}</code>
-                      </div>
-                      {ex.explanation && (
-                        <div className="text-[11px] text-zinc-400 font-sans pt-1 border-t border-zinc-800">
-                          <strong>Explanation: </strong> {ex.explanation}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {activeLeftTab === 'constraints' && (
-              <div className="space-y-4">
                 <div>
-                  <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-2">
-                    Complexity &amp; Data Constraints
-                  </span>
-                  <ul className="list-disc pl-4 space-y-1.5 text-zinc-300 font-mono text-xs">
-                    {currentProblem.constraints.map((c, i) => (
-                      <li key={i}>{c}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-zinc-400 space-y-1">
-                  <span className="font-bold text-zinc-200 block">Proctoring Assessment Notice:</span>
-                  <p>
-                    Keystroke flight dynamics, tab switches, and multi-face anomalies are logged automatically to your institutional evaluation profile.
-                  </p>
+                  <span className="text-zinc-500 font-sans">Expected Output: </span>
+                  <code className="text-emerald-400 font-bold">{currentProblem.examples[0].output}</code>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
-        {/* ─── RIGHT PANEL: Full IDE Editor & Docked Console (7 cols) ─── */}
-        <div className="lg:col-span-7 flex flex-col bg-zinc-950 overflow-hidden">
-          {/* Editor Header Bar */}
+        {/* ─── RIGHT PANE: Code Editor & Unified Output Console ─── */}
+        <div className="lg:col-span-7 flex flex-col bg-zinc-950 overflow-hidden relative">
+          {/* Editor Header */}
           <div className="h-9 px-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-900/40">
             <span className="text-xs font-mono font-bold text-zinc-300">
               solution.{language === 'python' ? 'py' : language === 'javascript' ? 'js' : 'ts'}
@@ -532,7 +488,7 @@ export const CandidateAssessment: React.FC = () => {
               <button
                 onClick={() => setCode(currentProblem.starterCode[language])}
                 className="p-1 rounded text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                title="Reset code template"
+                title="Reset code"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
@@ -546,7 +502,7 @@ export const CandidateAssessment: React.FC = () => {
             </div>
           </div>
 
-          {/* Full Height Code Editor */}
+          {/* Code Editor */}
           <div className="flex-1 p-4 overflow-auto bg-zinc-950">
             <textarea
               value={code}
@@ -559,164 +515,85 @@ export const CandidateAssessment: React.FC = () => {
             />
           </div>
 
-          {/* ─── DOCKED BOTTOM CONSOLE ─── */}
-          <div className="h-52 border-t border-zinc-800/80 flex flex-col bg-zinc-900/60 overflow-hidden flex-shrink-0">
-            {/* Console Tabs Bar */}
-            <div className="h-8 px-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-900/80">
-              <div className="flex items-center gap-3 text-xs">
-                <button
-                  onClick={() => setActiveConsoleTab('testcases')}
-                  className={`h-8 font-bold px-1 border-b-2 transition-all cursor-pointer ${
-                    activeConsoleTab === 'testcases'
-                      ? 'border-primary-500 text-white'
-                      : 'border-transparent text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  Test Cases ({currentProblem.testCases.filter((tc) => !tc.hidden).length})
-                </button>
-                <button
-                  onClick={() => setActiveConsoleTab('results')}
-                  className={`h-8 font-bold px-1 border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
-                    activeConsoleTab === 'results'
-                      ? 'border-primary-500 text-white'
-                      : 'border-transparent text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  Results
-                  {allPassed === true && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
-                  {allPassed === false && <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />}
-                </button>
-                <button
-                  onClick={() => setActiveConsoleTab('telemetry')}
-                  className={`h-8 font-bold px-1 border-b-2 transition-all cursor-pointer ${
-                    activeConsoleTab === 'telemetry'
-                      ? 'border-primary-500 text-white'
-                      : 'border-transparent text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  Proctor Logs ({telemetryLogs.length})
-                </button>
+          {/* ─── UNIFIED SINGLE OUTPUT CONSOLE ─── */}
+          <div className="h-44 border-t border-zinc-800/80 flex flex-col bg-zinc-900/70 overflow-hidden flex-shrink-0">
+            <div className="h-8 px-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-900/90">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-3.5 h-3.5 text-zinc-400" />
+                <span className="text-xs font-bold text-zinc-200">Execution Output</span>
               </div>
 
-              <span className="text-[10px] font-mono text-zinc-500">
-                {code.split('\n').length} lines • {code.length} chars
-              </span>
+              {allPassed !== null && (
+                <span className={`text-[11px] font-mono font-bold flex items-center gap-1 ${
+                  allPassed ? 'text-emerald-400' : 'text-rose-400'
+                }`}>
+                  {allPassed ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                  {allPassed ? 'Accepted (All Test Cases Passed)' : 'Wrong Answer'}
+                </span>
+              )}
             </div>
 
-            {/* Console Content */}
-            <div className="flex-1 p-3 overflow-y-auto text-xs font-mono">
-              {activeConsoleTab === 'testcases' && (
+            {/* Console Body: Shows Single Output Results */}
+            <div className="flex-1 p-3 overflow-y-auto font-mono text-xs">
+              {testResults.length === 0 ? (
+                <div className="text-zinc-500 italic space-y-1">
+                  <div>Ready to evaluate. Press "Run" to test your code.</div>
+                  <div className="text-[11px] text-zinc-600">
+                    Active Test Input: {currentProblem.testCases[0].input}
+                  </div>
+                </div>
+              ) : (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-1.5">
-                    {currentProblem.testCases.filter((tc) => !tc.hidden).map((tc, idx) => (
-                      <button
-                        key={tc.id}
-                        onClick={() => setSelectedTestCaseIndex(idx)}
-                        className={`px-2.5 py-0.5 rounded text-xs font-bold transition-all cursor-pointer ${
-                          selectedTestCaseIndex === idx
-                            ? 'bg-zinc-800 text-white border border-zinc-700'
-                            : 'text-zinc-400 hover:text-zinc-200'
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {testResults.map((tr) => (
+                      <div
+                        key={tr.id}
+                        className={`p-2 rounded border text-xs space-y-0.5 ${
+                          tr.passed
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                            : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
                         }`}
                       >
-                        Case {idx + 1}
-                      </button>
+                        <div className="flex items-center justify-between font-bold">
+                          <span>Case {tr.id}: {tr.passed ? 'PASSED' : 'FAILED'}</span>
+                          <span className="text-[10px] text-zinc-400">{tr.runtimeMs}ms</span>
+                        </div>
+                        <div className="text-[11px] truncate">Input: {tr.input}</div>
+                        <div className="text-[11px] font-bold">Output: {tr.actualOutput}</div>
+                      </div>
                     ))}
                   </div>
-
-                  {currentProblem.testCases[selectedTestCaseIndex] && (
-                    <div className="p-2.5 rounded bg-zinc-950 border border-zinc-800/80 space-y-1 text-xs">
-                      <div>
-                        <span className="text-zinc-500 font-sans">Input: </span>
-                        <code className="text-indigo-300 font-semibold">
-                          {currentProblem.testCases[selectedTestCaseIndex].input}
-                        </code>
-                      </div>
-                      <div>
-                        <span className="text-zinc-500 font-sans">Expected: </span>
-                        <code className="text-emerald-400 font-semibold">
-                          {currentProblem.testCases[selectedTestCaseIndex].expectedOutput}
-                        </code>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
+            </div>
+          </div>
 
-              {activeConsoleTab === 'results' && (
-                <div className="space-y-2">
-                  {testResults.length === 0 ? (
-                    <div className="text-zinc-500 italic text-center py-4">
-                      Click "Run" in top bar to execute test cases.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {testResults.map((tr) => (
-                        <div
-                          key={tr.id}
-                          className={`p-2 rounded border text-xs space-y-0.5 ${
-                            tr.passed
-                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                              : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between font-bold">
-                            <span>Case {tr.id}: {tr.passed ? 'PASSED' : 'FAILED'}</span>
-                            <span className="text-[10px] text-zinc-400">{tr.runtimeMs}ms</span>
-                          </div>
-                          <div className="text-[11px] truncate">Input: {tr.input}</div>
-                          <div className="text-[11px] font-bold">Output: {tr.actualOutput}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {activeConsoleTab === 'telemetry' && (
-                <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {telemetryLogs.map((t, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-1 rounded bg-zinc-950 border border-zinc-800 text-[11px]">
-                      <span className="text-indigo-400 font-bold uppercase text-[10px]">{t.type}</span>
-                      <span className="text-zinc-300 truncate max-w-[280px]">{t.details}</span>
-                      <span className="text-zinc-500 text-[10px]">{t.time}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+          {/* ─── PERMANENT VISIBLE WEBCAM PROCTOR (Bottom Right) ─── */}
+          <div className="absolute bottom-48 right-4 z-30 w-40 h-32 bg-zinc-900 rounded-xl border border-zinc-700/80 shadow-2xl overflow-hidden flex flex-col pointer-events-auto">
+            <div className="relative flex-1 bg-black">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute top-1 left-1 px-1 rounded bg-black/70 text-[9px] font-mono text-emerald-400 font-bold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {faceConfidence}%
+              </div>
+            </div>
+            <div className="px-2 py-1 bg-zinc-950 border-t border-zinc-800 text-[10px] font-mono text-zinc-300 flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                <Video className="w-3 h-3 text-purple-400" /> Proctor
+              </span>
+              <span className="text-emerald-400 font-bold text-[9px]">LIVE</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ─── 3. PICTURE-IN-PICTURE WEBCAM FLOATER (Compact & Draggable Corner) ─── */}
-      {showWebcamPip && (
-        <div className="fixed bottom-4 right-4 z-40 w-36 h-28 bg-zinc-900 rounded-xl border border-zinc-700/80 shadow-2xl overflow-hidden flex flex-col">
-          <div className="relative flex-1 bg-black">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute top-1 left-1.5 px-1 rounded bg-black/70 text-[9px] font-mono text-emerald-400 font-bold">
-              {faceConfidence}%
-            </div>
-            <button
-              onClick={() => setShowWebcamPip(false)}
-              className="absolute top-1 right-1 text-zinc-400 hover:text-white p-0.5 text-xs bg-black/50 rounded cursor-pointer"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="px-2 py-1 bg-zinc-950 border-t border-zinc-800 text-[9px] font-mono text-zinc-400 flex items-center justify-between">
-            <span>BlazeFace AI</span>
-            <span className="text-emerald-400 font-bold">LIVE</span>
-          </div>
-        </div>
-      )}
-
-      {/* ─── 4. SUBMISSION CERTIFICATE MODAL ─── */}
+      {/* ─── 3. SUBMISSION CERTIFICATE MODAL ─── */}
       {showSubmitModal && submissionReport && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <motion.div
@@ -730,8 +607,8 @@ export const CandidateAssessment: React.FC = () => {
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-sm">Submission Complete</h3>
-                  <p className="text-xs text-zinc-400">Proctored Assessment Recorded</p>
+                  <h3 className="font-bold text-white text-sm">Submission Complete &amp; Saved</h3>
+                  <p className="text-xs text-zinc-400">Stored in Backend Database</p>
                 </div>
               </div>
               <button
@@ -764,7 +641,7 @@ export const CandidateAssessment: React.FC = () => {
               onClick={() => setShowSubmitModal(false)}
               className="btn-primary text-xs font-bold w-full py-2 cursor-pointer"
             >
-              Continue Evaluation
+              Done
             </button>
           </motion.div>
         </div>
