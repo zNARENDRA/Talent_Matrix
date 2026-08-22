@@ -591,11 +591,11 @@ export const CandidateAssessment: React.FC = () => {
           <button
             onClick={() => {
               if (window.confirm('Are you sure you want to exit the assessment environment?')) {
-                navigate(role === 'student' ? '/student-portal' : '/');
+                navigate(role === 'student' ? '/student-portal' : '/assessments');
               }
             }}
             className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-rose-900/40 text-zinc-400 hover:text-rose-300 border border-zinc-700 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-            title="Exit assessment and return to dashboard/portal"
+            title="Exit assessment and return to portal"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Exit Exam</span>
