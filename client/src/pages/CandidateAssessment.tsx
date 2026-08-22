@@ -99,18 +99,34 @@ export const CandidateAssessment: React.FC = () => {
     };
   }, [currentSession?.id]);
 
-  // 3. Tab Visibility Listeners
+  // Active Proctor Violation Banner/Toast State
+  const [activeViolation, setActiveViolation] = useState<{ type: string; message: string } | null>(null);
+
+  // 3. Tab Visibility & Window Switching Listeners
   useEffect(() => {
     if (!currentSession) return;
 
     const handleBlur = () => {
       blurStartTimeRef.current = Date.now();
+      setActiveViolation({
+        type: 'tab_switch',
+        message: '⚠️ Tab / Window Switched! Returning to test... This event is recorded.',
+      });
     };
 
     const handleFocus = () => {
       if (blurStartTimeRef.current) {
-        const durationSec = Math.round((Date.now() - blurStartTimeRef.current) / 1000);
+        const durationSec = Math.max(1, Math.round((Date.now() - blurStartTimeRef.current) / 1000));
         blurStartTimeRef.current = null;
+
+        setActiveViolation({
+          type: 'tab_switch',
+          message: `⚠️ Tab switch logged: Defocused for ${durationSec}s. Recorded in Proctor Audit.`,
+        });
+
+        setTimeout(() => {
+          setActiveViolation((prev) => (prev?.type === 'tab_switch' ? null : prev));
+        }, 4000);
 
         api.sendTelemetryEvent(currentSession.id, {
           eventType: 'tab_blur',
@@ -119,11 +135,22 @@ export const CandidateAssessment: React.FC = () => {
       }
     };
 
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        handleBlur();
+      } else {
+        handleFocus();
+      }
+    };
+
     window.addEventListener('blur', handleBlur);
     window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [currentSession?.id]);
 
@@ -185,11 +212,26 @@ export const CandidateAssessment: React.FC = () => {
         setDetectedFacesCount(detection.faceCount);
         setCameraStatus(detection.status);
 
-        if (detection.status === 'multiple_faces' || detection.status === 'face_absent') {
+        if (detection.status === 'multiple_faces') {
+          setActiveViolation({
+            type: 'multiple_faces',
+            message: `🚨 Multiple Persons Detected! ${detection.faceCount} faces visible in camera frame.`,
+          });
           api.sendTelemetryEvent(currentSession.id, {
-            eventType: detection.status === 'multiple_faces' ? 'webcam_multiple_faces' : 'webcam_face_absence',
+            eventType: 'webcam_multiple_faces',
             data: { faceCount: detection.faceCount, timestamp: new Date().toISOString() },
           }).catch(() => {});
+        } else if (detection.status === 'face_absent') {
+          setActiveViolation({
+            type: 'face_absent',
+            message: '⚠️ Candidate Face Absent: Please ensure your face is clearly visible in the camera frame.',
+          });
+          api.sendTelemetryEvent(currentSession.id, {
+            eventType: 'webcam_face_absence',
+            data: { faceCount: 0, timestamp: new Date().toISOString() },
+          }).catch(() => {});
+        } else {
+          setActiveViolation((prev) => (prev?.type === 'multiple_faces' || prev?.type === 'face_absent' ? null : prev));
         }
       } catch (err) {
         // Fallback silently
@@ -419,6 +461,22 @@ export const CandidateAssessment: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ─── ACTIVE PROCTOR VIOLATION WARNING BANNER ─── */}
+      {activeViolation && (
+        <div className="bg-rose-600 text-white text-xs font-bold px-4 py-2 flex items-center justify-between shadow-lg animate-pulse z-40 border-b border-rose-500 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-white flex-shrink-0" />
+            <span>{activeViolation.message}</span>
+          </div>
+          <button
+            onClick={() => setActiveViolation(null)}
+            className="text-white/80 hover:text-white text-xs font-bold ml-3 cursor-pointer underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* ─── 2. MAIN SPLIT IDE WORKSPACE ─── */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
