@@ -150,3 +150,4 @@ The database comes pre-seeded with rich, realistic Indian university placement s
 - `Ctrl + K` / `Cmd + K`: Global Command Palette to search across all views and trigger direct actions
 - **Dark Mode Switcher**: Seamless dark mode support in sidebar with persistent local storage
 - **Responsive Layout**: Designed for executive high-resolution displays down to tablet viewports
+"# Midnight-Coders-PS1" 
