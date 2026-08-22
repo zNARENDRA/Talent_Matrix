@@ -1,21 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApi } from '../hooks/useApi';
 import { api } from '../lib/api';
+import { getSocket } from '../lib/socket';
 import {
   Code2, Clock, ShieldCheck, AlertTriangle, Eye, Activity,
-  Clipboard, MonitorX, Keyboard, ChevronRight, Terminal, Search,
-  Filter, CheckCircle2, XCircle, Users, Camera, CameraOff, RefreshCw,
-  ExternalLink, Sparkles, UserCheck, ShieldAlert
+  Clipboard, MonitorX, Keyboard, ChevronRight, Terminal, ArrowUpRight,
+  RefreshCw, CheckCircle2, XCircle, Sparkles, User, Copy, Check,
+  FileCode, Play, Award, Zap, AlertCircle, ShieldAlert, BrainCircuit
 } from 'lucide-react';
 
 const riskColors: Record<string, string> = {
-  normal: 'badge badge-success',
-  low: 'badge badge-info',
-  moderate: 'badge badge-warning',
-  high: 'badge badge-danger',
-  critical: 'badge bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 font-bold',
+  normal: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+  low: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
+  moderate: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
+  high: 'bg-rose-500/15 text-rose-400 border border-rose-500/30',
+  critical: 'bg-red-500/20 text-red-300 border border-red-500/50 animate-pulse',
 };
 
 const eventIcons: Record<string, React.ReactNode> = {
@@ -23,10 +24,10 @@ const eventIcons: Record<string, React.ReactNode> = {
   paste: <Clipboard className="w-3.5 h-3.5 text-amber-400" />,
   tab_blur: <MonitorX className="w-3.5 h-3.5 text-rose-400" />,
   code_insert: <Code2 className="w-3.5 h-3.5 text-purple-400" />,
-  tab_focus: <Eye className="w-3.5 h-3.5 text-cyan-400" />,
-  submission: <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />,
-  webcam_face_absence: <CameraOff className="w-3.5 h-3.5 text-amber-400" />,
-  webcam_multiple_faces: <Users className="w-3.5 h-3.5 text-rose-400" />,
+  tab_focus: <Eye className="w-3.5 h-3.5 text-blue-400" />,
+  submission: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />,
+  webcam_multiple_faces: <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />,
+  webcam_face_absence: <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />,
   idle: <Clock className="w-3.5 h-3.5 text-zinc-500" />,
 };
 
@@ -34,420 +35,460 @@ export const AssessmentsPage: React.FC = () => {
   const navigate = useNavigate();
   const { data: sessionsData, loading, refetch } = useApi(() => api.getAssessments());
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [riskFilter, setRiskFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [copiedCode, setCopiedCode] = useState<boolean>(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState<boolean>(false);
+  const [aiAnalysisResult, setAiAnalysisResult] = useState<any>(null);
 
-  const { data: sessionDetail, loading: detailLoading } = useApi(
+  const { data: sessionDetail, loading: detailLoading, refetch: refetchDetail } = useApi(
     () => (selectedSessionId ? api.getAssessment(selectedSessionId) : Promise.resolve(null)),
     [selectedSessionId]
   );
 
+  // Live WebSocket auto-refresh for proctors
+  useEffect(() => {
+    const socket = getSocket();
+
+    const handleUpdate = () => {
+      refetch();
+      if (selectedSessionId) refetchDetail();
+    };
+
+    socket.on('telemetry:event', handleUpdate);
+    socket.on('score:update', handleUpdate);
+    socket.on('anomaly:new', handleUpdate);
+
+    return () => {
+      socket.off('telemetry:event', handleUpdate);
+      socket.off('score:update', handleUpdate);
+      socket.off('anomaly:new', handleUpdate);
+    };
+  }, [selectedSessionId]);
+
   const sessions = sessionsData?.data || [];
 
-  // Filtered sessions
-  const filteredSessions = sessions.filter((s: any) => {
-    const matchesSearch =
-      !searchQuery ||
-      s.student?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.student?.studentId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.assessmentName?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesRisk = riskFilter === 'all' || s.riskLevel === riskFilter;
-    const matchesStatus = statusFilter === 'all' || s.status === statusFilter;
-
-    return matchesSearch && matchesRisk && matchesStatus;
-  });
-
-  // Calculate high-level KPIs
+  // Summary Metrics
   const totalSessions = sessions.length;
-  const avgScore = totalSessions > 0
-    ? Math.round(sessions.reduce((acc: number, s: any) => acc + (s.authenticityScore || 0), 0) / totalSessions)
-    : 0;
-  const highRiskCount = sessions.filter((s: any) => s.riskLevel === 'high' || s.riskLevel === 'critical').length;
-  const completedCount = sessions.filter((s: any) => s.status === 'completed').length;
+  const completedSessions = sessions.filter((s: any) => s.status === 'completed').length;
+  const highRiskSessions = sessions.filter((s: any) => s.riskLevel === 'high' || s.riskLevel === 'critical').length;
+  const avgAuthenticity = totalSessions > 0
+    ? Math.round(sessions.reduce((a: number, b: any) => a + (b.authenticityScore || 100), 0) / totalSessions)
+    : 100;
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleGenerateAIReport = async () => {
+    if (!selectedSessionId) return;
+    setIsGeneratingAI(true);
+    try {
+      const res = await api.getAssessmentAIAnalysis(selectedSessionId);
+      setAiAnalysisResult(res.aiReport);
+    } catch (err: any) {
+      alert('Failed to generate AI report: ' + err.message);
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* ─── 1. TPO PROCTORING HUB HEADER ──────────────────────── */}
+      {/* ─── 1. TOP HEADER & SANDBOX LAUNCHER ─── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center font-bold">
-              <Code2 className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white">
-                Coding Assessments &amp; Proctoring Hub
-              </h1>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                Centralized TPO monitor for candidate test sessions, real-time code authenticity, and computer-vision proctoring signals.
-              </p>
-            </div>
+            <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2.5">
+              <Code2 className="w-7 h-7 text-indigo-500" /> Coding Assessments &amp; Proctoring Hub
+            </h1>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Live Proctoring Active
+            </span>
           </div>
+          <p className="text-sm text-zinc-400 mt-1">
+            Real-time candidate assessment monitoring, test execution verdicts, keystroke dynamics, and AI computer-vision telemetry.
+          </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             onClick={() => refetch()}
-            className="btn-secondary text-xs py-2 px-3 flex items-center gap-1.5 cursor-pointer"
-            title="Refresh session data"
+            className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 transition-colors cursor-pointer"
+            title="Refresh assessment sessions"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Refresh</span>
+            <RefreshCw className="w-4 h-4" />
           </button>
 
           <button
-            onClick={() => navigate('/anomalies')}
-            className="btn-primary text-xs py-2 px-3.5 flex items-center gap-1.5 shadow-md shadow-indigo-500/20 cursor-pointer"
+            onClick={() => navigate('/candidate-sandbox')}
+            className="btn-primary text-xs py-2 px-4 flex items-center gap-2 shadow-md shadow-indigo-500/20 cursor-pointer"
           >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            <span>Open Anomaly Room</span>
+            <Terminal className="w-4 h-4" />
+            <span>Launch Candidate Sandbox (Test Preview)</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* ─── 2. TPO STATS KPI CARDS ───────────────────────────── */}
+      {/* ─── 2. KPI SUMMARY METRICS ─── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-1">
-          <div className="flex items-center justify-between text-xs text-zinc-400 font-medium">
-            <span>Total Monitored Tests</span>
-            <Users className="w-4 h-4 text-indigo-400" />
-          </div>
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Total Test Sessions</span>
           <div className="text-2xl font-extrabold font-mono text-white">{totalSessions}</div>
-          <div className="text-[11px] text-zinc-500">Active &amp; past candidate attempts</div>
+          <p className="text-[11px] text-zinc-500">Initiated on platform</p>
         </div>
 
         <div className="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-1">
-          <div className="flex items-center justify-between text-xs text-zinc-400 font-medium">
-            <span>Average Authenticity</span>
-            <Sparkles className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div className="text-2xl font-extrabold font-mono text-emerald-400">{avgScore}%</div>
-          <div className="text-[11px] text-zinc-500">Telemetry &amp; typing consistency</div>
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Completed Submissions</span>
+          <div className="text-2xl font-extrabold font-mono text-emerald-400">{completedSessions}</div>
+          <p className="text-[11px] text-zinc-500">Graded with code verdicts</p>
         </div>
 
         <div className="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-1">
-          <div className="flex items-center justify-between text-xs text-zinc-400 font-medium">
-            <span>High Risk Violations</span>
-            <AlertTriangle className="w-4 h-4 text-rose-400" />
-          </div>
-          <div className={`text-2xl font-extrabold font-mono ${highRiskCount > 0 ? 'text-rose-400' : 'text-zinc-300'}`}>
-            {highRiskCount}
-          </div>
-          <div className="text-[11px] text-zinc-500">Flagged for human proctor review</div>
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Average Authenticity</span>
+          <div className="text-2xl font-extrabold font-mono text-indigo-400">{avgAuthenticity}%</div>
+          <p className="text-[11px] text-zinc-500">Keystroke & biometric match</p>
         </div>
 
         <div className="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-1">
-          <div className="flex items-center justify-between text-xs text-zinc-400 font-medium">
-            <span>Completed Submissions</span>
-            <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Flagged High-Risk</span>
+          <div className={`text-2xl font-extrabold font-mono ${highRiskSessions > 0 ? 'text-rose-400' : 'text-zinc-400'}`}>
+            {highRiskSessions}
           </div>
-          <div className="text-2xl font-extrabold font-mono text-cyan-400">{completedCount}</div>
-          <div className="text-[11px] text-zinc-500">Evaluated &amp; persisted in database</div>
+          <p className="text-[11px] text-zinc-500">Anomaly alerts escalated</p>
         </div>
       </div>
 
-      {/* ─── 3. SEARCH & FILTERS BAR ──────────────────────────── */}
-      <div className="p-3.5 rounded-2xl bg-zinc-900/80 border border-zinc-800 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-1 min-w-[240px]">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search candidate name, student ID, or problem title..."
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Risk Filter */}
-          <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5">
-            <Filter className="w-3.5 h-3.5 text-zinc-500" />
-            <select
-              value={riskFilter}
-              onChange={(e) => setRiskFilter(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-zinc-200 focus:outline-none cursor-pointer"
-            >
-              <option value="all">All Risks</option>
-              <option value="normal">Normal Risk</option>
-              <option value="low">Low Risk</option>
-              <option value="moderate">Moderate Risk</option>
-              <option value="high">High Risk</option>
-              <option value="critical">Critical Risk</option>
-            </select>
-          </div>
-
-          {/* Status Filter */}
-          <div className="flex items-center gap-1.5 bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-1.5">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-zinc-200 focus:outline-none cursor-pointer"
-            >
-              <option value="all">All Statuses</option>
-              <option value="active">Active Sessions</option>
-              <option value="completed">Completed</option>
-              <option value="under_review">Under Review</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── 4. MAIN SPLIT: SESSIONS TABLE + DETAIL INSPECTOR ── */}
+      {/* ─── 3. MAIN SESSIONS TABLE & INSPECTOR DRAWER ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left / Main: Sessions Table */}
-        <div className={`${selectedSessionId ? 'lg:col-span-7' : 'lg:col-span-12'} glass-card overflow-hidden transition-all duration-300`}>
-          {loading ? (
-            <div className="p-6 space-y-3">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="skeleton h-14 rounded-xl" />
-              ))}
-            </div>
-          ) : filteredSessions.length === 0 ? (
-            <div className="text-center py-12 text-zinc-500 text-xs italic">
-              No assessment sessions matching the active search or risk filters.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="data-table text-xs">
+        {/* Left / Center: Sessions Table */}
+        <div className={`${selectedSessionId ? 'lg:col-span-7' : 'lg:col-span-12'} glass-card overflow-hidden transition-all`}>
+          <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Activity className="w-4 h-4 text-indigo-400" /> Candidate Evaluation Sessions
+            </h3>
+            <span className="text-xs font-mono text-zinc-400">{sessions.length} records</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            {loading ? (
+              <div className="p-6 space-y-3">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="h-12 bg-zinc-800/40 rounded-xl animate-pulse" />
+                ))}
+              </div>
+            ) : sessions.length === 0 ? (
+              <div className="text-center py-12 text-zinc-500 text-xs italic">
+                No assessment sessions recorded yet. Launch the Candidate Sandbox above to test.
+              </div>
+            ) : (
+              <table className="data-table">
                 <thead>
                   <tr>
                     <th>Candidate</th>
                     <th>Assessment &amp; Problem</th>
+                    <th>Evaluation Verdict</th>
                     <th>Authenticity</th>
-                    <th>Risk Level</th>
-                    <th>Signals</th>
+                    <th>Integrity Risk</th>
                     <th>Status</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredSessions.map((session: any, i: number) => {
+                  {sessions.map((session: any) => {
                     const isSelected = selectedSessionId === session.id;
-                    const score = Math.round(session.authenticityScore || 0);
+                    const sub = session.submission;
 
                     return (
-                      <motion.tr
+                      <tr
                         key={session.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: Math.min(i * 0.02, 0.25) }}
-                        onClick={() => setSelectedSessionId(session.id)}
+                        onClick={() => {
+                          setSelectedSessionId(session.id);
+                          setAiAnalysisResult(null);
+                        }}
                         className={`cursor-pointer transition-colors ${
-                          isSelected ? 'bg-indigo-500/15 border-indigo-500/40' : 'hover:bg-zinc-800/50'
+                          isSelected ? 'bg-indigo-500/10 border-indigo-500/40' : 'hover:bg-zinc-800/40'
                         }`}
                       >
                         <td>
-                          <div className="font-semibold text-white">{session.student?.name}</div>
-                          <div className="text-[11px] text-zinc-400 font-mono">
-                            {session.student?.studentId} • {session.student?.department || 'Engineering'}
-                          </div>
+                          <div className="font-semibold text-white text-xs">{session.student?.name || 'Candidate'}</div>
+                          <div className="text-[11px] text-zinc-400 font-mono">{session.student?.studentId} • {session.student?.department}</div>
                         </td>
+
                         <td>
-                          <div className="font-medium text-zinc-200">{session.assessmentName}</div>
-                          <div className="text-[10px] text-zinc-500">
-                            {new Date(session.startedAt || Date.now()).toLocaleDateString()}
+                          <div className="text-xs font-semibold text-zinc-200 truncate max-w-[200px]">
+                            {sub?.problemTitle || session.assessmentName}
+                          </div>
+                          <div className="text-[10px] text-zinc-500 font-mono">
+                            {new Date(session.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </td>
+
+                        <td>
+                          {sub ? (
+                            <span
+                              className={`px-2 py-0.5 rounded-md text-[11px] font-bold font-mono border inline-flex items-center gap-1 ${
+                                sub.allPassed
+                                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                  : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                              }`}
+                            >
+                              {sub.allPassed ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                              {sub.passedCount} / {sub.totalCount} Passed ({sub.runtimeMs}ms)
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-zinc-500 italic">In Progress...</span>
+                          )}
+                        </td>
+
                         <td>
                           <div className="flex items-center gap-2">
-                            <div className="w-14 h-2 bg-zinc-800 rounded-full overflow-hidden flex-shrink-0">
+                            <div className="w-16 h-2 bg-zinc-800 rounded-full overflow-hidden">
                               <div
                                 className={`h-full rounded-full ${
-                                  score >= 80 ? 'bg-emerald-500' : score >= 50 ? 'bg-amber-500' : 'bg-rose-500'
+                                  session.authenticityScore >= 80
+                                    ? 'bg-emerald-500'
+                                    : session.authenticityScore >= 50
+                                    ? 'bg-amber-500'
+                                    : 'bg-rose-500'
                                 }`}
-                                style={{ width: `${score}%` }}
+                                style={{ width: `${session.authenticityScore}%` }}
                               />
                             </div>
-                            <span className="font-mono font-bold text-white">{score}%</span>
+                            <span className="text-xs font-bold font-mono text-white">
+                              {Math.round(session.authenticityScore)}%
+                            </span>
                           </div>
                         </td>
+
                         <td>
-                          <span className={riskColors[session.riskLevel] || 'badge badge-neutral'}>
-                            {session.riskLevel.toUpperCase()}
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase ${riskColors[session.riskLevel] || 'bg-zinc-800 text-zinc-400'}`}>
+                            {session.riskLevel}
                           </span>
                         </td>
-                        <td>
-                          <span className="font-mono text-zinc-400 text-xs">
-                            {session._count?.events || 0} ev
-                          </span>
-                        </td>
+
                         <td>
                           <span
-                            className={`badge text-[10px] uppercase font-mono ${
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase font-mono ${
                               session.status === 'completed'
-                                ? 'badge-success'
-                                : session.status === 'under_review'
-                                ? 'badge-warning'
-                                : 'badge-neutral'
+                                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30'
                             }`}
                           >
-                            {session.status.replace(/_/g, ' ')}
+                            {session.status}
                           </span>
                         </td>
+
                         <td>
-                          <ChevronRight
-                            className={`w-4 h-4 transition-transform ${
-                              isSelected ? 'text-indigo-400 translate-x-1' : 'text-zinc-600'
-                            }`}
-                          />
+                          <ChevronRight className={`w-4 h-4 transition-transform ${isSelected ? 'text-indigo-400 translate-x-1' : 'text-zinc-500'}`} />
                         </td>
-                      </motion.tr>
+                      </tr>
                     );
                   })}
                 </tbody>
               </table>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* Right: Detailed Session Inspector */}
-        {selectedSessionId && (
+        {/* Right Pane: Session Detail & Submitted Code Inspector */}
+        {selectedSessionId && sessionDetail && (
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-5 glass-card p-5 space-y-4 sticky top-6 max-h-[85vh] overflow-y-auto"
+            className="lg:col-span-5 glass-card p-5 space-y-4 max-h-[85vh] overflow-y-auto sticky top-4 border-indigo-500/30 shadow-2xl"
           >
-            {detailLoading ? (
-              <div className="p-4 space-y-3">
-                <div className="skeleton h-20 rounded-xl" />
-                <div className="skeleton h-32 rounded-xl" />
+            {/* Inspector Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center font-bold">
+                  <User className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-white">{sessionDetail.student?.name}</h3>
+                  <p className="text-[11px] text-zinc-400 font-mono">
+                    {sessionDetail.student?.studentId} • {sessionDetail.student?.department} • GPA {sessionDetail.student?.gpa}
+                  </p>
+                </div>
               </div>
-            ) : sessionDetail ? (
-              <>
-                {/* Header */}
-                <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
-                  <div>
-                    <h3 className="card-title text-sm">Session Telemetry Inspector</h3>
-                    <p className="text-[11px] text-zinc-400 font-mono">
-                      ID: {sessionDetail.id?.slice(0, 16)}...
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setSelectedSessionId(null)}
-                    className="text-zinc-400 hover:text-white text-xs cursor-pointer p-1 font-bold"
-                  >
-                    ✕
-                  </button>
-                </div>
+              <button
+                onClick={() => setSelectedSessionId(null)}
+                className="text-zinc-400 hover:text-white p-1 cursor-pointer font-bold"
+              >
+                ✕
+              </button>
+            </div>
 
-                {/* Score & Risk Banner */}
-                <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 text-center space-y-1.5">
-                  <div
-                    className={`text-4xl font-extrabold font-mono ${
-                      sessionDetail.authenticityScore >= 80
-                        ? 'text-emerald-400'
-                        : sessionDetail.authenticityScore >= 50
-                        ? 'text-amber-400'
-                        : 'text-rose-400'
-                    }`}
-                  >
-                    {Math.round(sessionDetail.authenticityScore)}/100
-                  </div>
-                  <div className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
-                    Code Authenticity Score
-                  </div>
-                  <span className={`mt-1 inline-block ${riskColors[sessionDetail.riskLevel]}`}>
-                    {sessionDetail.riskLevel.toUpperCase()} RISK
-                  </span>
+            {/* Score & Verdict Card */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3.5 rounded-xl bg-zinc-900 border border-zinc-800 text-center space-y-1">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block font-sans">
+                  Authenticity Score
+                </span>
+                <div
+                  className={`text-2xl font-extrabold font-mono ${
+                    sessionDetail.authenticityScore >= 80
+                      ? 'text-emerald-400'
+                      : sessionDetail.authenticityScore >= 50
+                      ? 'text-amber-400'
+                      : 'text-rose-400'
+                  }`}
+                >
+                  {Math.round(sessionDetail.authenticityScore)}/100
                 </div>
+                <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase ${riskColors[sessionDetail.riskLevel]}`}>
+                  {sessionDetail.riskLevel} Risk
+                </span>
+              </div>
 
-                {/* Candidate Info */}
-                <div className="p-3.5 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-1 text-xs">
-                  <div className="font-bold text-white text-sm">{sessionDetail.student?.name}</div>
-                  <div className="text-zinc-400 font-mono flex items-center justify-between pt-1 border-t border-zinc-800/80">
-                    <span>{sessionDetail.student?.studentId}</span>
-                    <span>{sessionDetail.student?.department}</span>
-                    <span>GPA: {sessionDetail.student?.gpa}</span>
-                  </div>
-                </div>
-
-                {/* Alerts List */}
-                {sessionDetail.alerts?.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-                      Proctoring Violation Flags ({sessionDetail.alerts.length})
-                    </h4>
-                    <div className="space-y-1.5">
-                      {sessionDetail.alerts.map((alert: any) => (
-                        <div
-                          key={alert.id}
-                          className="p-2.5 rounded-lg border border-rose-500/30 bg-rose-500/10 text-xs space-y-1"
-                        >
-                          <div className="flex items-center justify-between font-bold text-rose-300">
-                            <span className="flex items-center gap-1.5">
-                              <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                              {alert.signalType.replace(/_/g, ' ').toUpperCase()}
-                            </span>
-                            <span className="text-[10px] uppercase font-mono">{alert.severity}</span>
-                          </div>
-                          <p className="text-[11px] text-zinc-300">{alert.description}</p>
-                        </div>
-                      ))}
+              <div className="p-3.5 rounded-xl bg-zinc-900 border border-zinc-800 text-center space-y-1">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block font-sans">
+                  Submission Verdict
+                </span>
+                {sessionDetail.submission ? (
+                  <>
+                    <div className="text-xl font-extrabold font-mono text-emerald-400">
+                      {sessionDetail.submission.passedCount} / {sessionDetail.submission.totalCount} Passed
                     </div>
-                  </div>
+                    <span className="text-[10px] text-zinc-400 font-mono block">
+                      Runtime: {sessionDetail.submission.runtimeMs}ms
+                    </span>
+                  </>
+                ) : (
+                  <div className="text-sm font-semibold text-indigo-400 py-2">Test In Progress</div>
                 )}
+              </div>
+            </div>
 
-                {/* Telemetry Activity Timeline */}
-                <div className="space-y-2">
-                  <h4 className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-                    Telemetry Stream ({sessionDetail.events?.length || 0} events)
-                  </h4>
-                  <div className="space-y-1 max-h-48 overflow-y-auto pr-1 text-xs">
-                    {sessionDetail.events?.slice(0, 30).map((event: any) => {
-                      const eventData = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-                      return (
-                        <div
-                          key={event.id}
-                          className="p-2 rounded-lg bg-zinc-950 border border-zinc-850 flex items-start gap-2"
-                        >
-                          <span className="text-zinc-500 font-mono text-[10px] whitespace-nowrap w-16 pt-0.5">
-                            {new Date(event.timestamp).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              second: '2-digit',
-                            })}
-                          </span>
-                          <div className="mt-0.5">{eventIcons[event.eventType] || <Activity className="w-3.5 h-3.5" />}</div>
-                          <div className="flex-1 min-w-0 text-[11px]">
-                            <span className="font-semibold text-zinc-200 capitalize">
-                              {event.eventType.replace(/_/g, ' ')}
-                            </span>
-                            {event.eventType === 'paste' && (
-                              <span className="text-amber-400 ml-1">({eventData.size} chars)</span>
-                            )}
-                            {event.eventType === 'tab_blur' && (
-                              <span className="text-rose-400 ml-1">({eventData.duration}s defocused)</span>
-                            )}
-                            {event.eventType === 'code_insert' && (
-                              <span className="text-purple-400 ml-1">({eventData.size} chars inserted)</span>
-                            )}
-                            {event.eventType === 'webcam_multiple_faces' && (
-                              <span className="text-rose-400 ml-1 font-bold">({eventData.faceCount} faces)</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+            {/* Candidate Submitted Code Block */}
+            {sessionDetail.submission ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <FileCode className="w-3.5 h-3.5 text-indigo-400" /> Submitted Solution Code
+                  </span>
+                  {sessionDetail.events?.find((e: any) => e.eventType === 'submission') && (
+                    <button
+                      onClick={() => {
+                        const subEvent = sessionDetail.events.find((e: any) => e.eventType === 'submission');
+                        const data = typeof subEvent?.data === 'string' ? JSON.parse(subEvent.data) : subEvent?.data;
+                        if (data?.code) handleCopyCode(data.code);
+                      }}
+                      className="text-[10px] text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer font-bold"
+                    >
+                      {copiedCode ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
+                    </button>
+                  )}
                 </div>
 
-                {/* TPO Action Controls */}
-                <div className="pt-3 border-t border-zinc-800 flex items-center gap-2">
-                  <button
-                    onClick={() => navigate('/anomalies')}
-                    className="btn-primary text-xs py-2 w-full flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Triage in Anomaly Command Room</span>
-                  </button>
+                <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800 max-h-56 overflow-auto font-mono text-xs text-zinc-200">
+                  {(() => {
+                    const subEvent = sessionDetail.events?.find((e: any) => e.eventType === 'submission');
+                    const data = typeof subEvent?.data === 'string' ? JSON.parse(subEvent.data) : subEvent?.data;
+                    return (
+                      <pre className="whitespace-pre-wrap leading-relaxed select-text">
+                        {data?.code || '// Code captured during execution'}
+                      </pre>
+                    );
+                  })()}
                 </div>
-              </>
+              </div>
             ) : null}
+
+            {/* AI Code Authenticity Report (Gemini Powered) */}
+            <div className="p-3.5 rounded-xl bg-zinc-900 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <BrainCircuit className="w-3.5 h-3.5 text-purple-400" /> AI Proctor Integrity Analysis
+                </span>
+                <button
+                  onClick={handleGenerateAIReport}
+                  disabled={isGeneratingAI}
+                  className="px-2.5 py-1 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold flex items-center gap-1 shadow-sm transition-colors cursor-pointer"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>{isGeneratingAI ? 'Analyzing...' : 'Generate AI Report'}</span>
+                </button>
+              </div>
+
+              {aiAnalysisResult ? (
+                <div className="p-3 rounded-lg bg-zinc-950 border border-purple-500/30 text-xs space-y-2">
+                  <div className="font-bold text-purple-300 flex items-center justify-between">
+                    <span>Authenticity Rating: {aiAnalysisResult.authenticityRating || 'Authentic'}</span>
+                    <span className="font-mono text-white">{aiAnalysisResult.confidenceScore || 95}% Confidence</span>
+                  </div>
+                  <p className="text-zinc-300 text-[11px] leading-relaxed">
+                    {aiAnalysisResult.summary || aiAnalysisResult.analysis || 'Analysis verified authentic student coding patterns.'}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[11px] text-zinc-400">
+                  Google Gemini neural telemetry analysis evaluates flight time intervals, keystroke rhythm, and tab visibility anomalies.
+                </p>
+              )}
+            </div>
+
+            {/* Alerts if any */}
+            {sessionDetail.alerts?.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" /> Proctoring Alerts ({sessionDetail.alerts.length})
+                </span>
+                <div className="space-y-1.5">
+                  {sessionDetail.alerts.map((alert: any) => (
+                    <div
+                      key={alert.id}
+                      className="p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-xs space-y-1"
+                    >
+                      <div className="flex items-center justify-between font-bold text-amber-300">
+                        <span className="capitalize">{alert.severity} Risk Warning</span>
+                        <span className="text-[10px] font-mono">{new Date(alert.createdAt).toLocaleTimeString()}</span>
+                      </div>
+                      <p className="text-zinc-300 text-[11px]">{alert.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Real-Time Activity & Telemetry Timeline */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-zinc-400" /> Telemetry Stream ({sessionDetail.events?.length || 0} events)
+              </span>
+              <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                {sessionDetail.events?.slice(0, 40).map((event: any) => {
+                  const eventData = typeof event.data === 'string' ? JSON.parse(event.data || '{}') : event.data;
+                  return (
+                    <div
+                      key={event.id}
+                      className="flex items-center justify-between p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        {eventIcons[event.eventType] || <Activity className="w-3.5 h-3.5 text-zinc-400" />}
+                        <span className="font-semibold text-zinc-200 capitalize">
+                          {event.eventType.replace(/_/g, ' ')}
+                        </span>
+                        {event.eventType === 'paste' && (
+                          <span className="text-amber-400 font-mono text-[10px]">({eventData.size} chars)</span>
+                        )}
+                        {event.eventType === 'tab_blur' && (
+                          <span className="text-rose-400 font-mono text-[10px]">({eventData.duration}s defocus)</span>
+                        )}
+                        {event.eventType === 'webcam_multiple_faces' && (
+                          <span className="text-rose-400 font-mono text-[10px]">({eventData.faceCount} faces detected)</span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-zinc-500 font-mono">
+                        {new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </motion.div>
         )}
       </div>

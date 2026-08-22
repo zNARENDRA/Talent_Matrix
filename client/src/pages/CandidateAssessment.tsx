@@ -79,13 +79,24 @@ export const CandidateAssessment: React.FC = () => {
   };
 
   useEffect(() => {
-    api.getAssessments({ limit: '10' }).then((res) => {
-      if (res.data && res.data.length > 0) {
-        setSessions(res.data);
-        setCurrentSession(res.data[0]);
+    const candidateIdentifier = user?.studentId || user?.id || 'STU1001';
+    api.startAssessmentSession({
+      studentId: candidateIdentifier,
+      assessmentName: currentProblem.title,
+    }).then((session) => {
+      if (session && session.id) {
+        setCurrentSession(session);
       }
-    }).catch(console.error);
-  }, []);
+    }).catch((err) => {
+      console.warn('Could not start dedicated session, loading latest session:', err);
+      api.getAssessments({ limit: '5' }).then((res) => {
+        if (res.data && res.data.length > 0) {
+          setSessions(res.data);
+          setCurrentSession(res.data[0]);
+        }
+      }).catch(console.error);
+    });
+  }, [user?.studentId, user?.id, currentProblem.title]);
 
   useEffect(() => {
     if (!currentSession) return;

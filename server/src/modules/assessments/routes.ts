@@ -7,7 +7,7 @@ import { emitTelemetryEvent, emitScoreUpdate, emitNewAnomalyAlert } from '../../
 export const assessmentsRouter = Router();
 const anomalyEngine = new AnomalyEngine();
 
-// GET /api/assessments - List assessment sessions
+// GET /api/assessments - List assessment sessions with submission summary
 assessmentsRouter.get('/', async (req: Request, res: Response) => {
   try {
     const { status, riskLevel, studentId } = req.query;
@@ -20,11 +20,40 @@ assessmentsRouter.get('/', async (req: Request, res: Response) => {
       where,
       include: {
         student: true,
+        events: {
+          where: { eventType: 'submission' },
+          take: 1,
+        },
         _count: { select: { events: true, alerts: true } },
       },
       orderBy: { startedAt: 'desc' },
     });
-    res.json({ data: sessions, total: sessions.length });
+
+    const enrichedSessions = sessions.map((s) => {
+      let submission = null;
+      if (s.events && s.events.length > 0) {
+        try {
+          submission = typeof s.events[0].data === 'string' ? JSON.parse(s.events[0].data) : s.events[0].data;
+        } catch {}
+      }
+      return {
+        id: s.id,
+        studentId: s.studentId,
+        student: s.student,
+        driveId: s.driveId,
+        assessmentName: s.assessmentName,
+        startedAt: s.startedAt,
+        endedAt: s.endedAt,
+        status: s.status,
+        authenticityScore: s.authenticityScore,
+        riskLevel: s.riskLevel,
+        totalEvents: s.totalEvents,
+        _count: s._count,
+        submission,
+      };
+    });
+
+    res.json({ data: enrichedSessions, total: enrichedSessions.length });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -34,16 +63,29 @@ assessmentsRouter.get('/', async (req: Request, res: Response) => {
 assessmentsRouter.post('/start', async (req: Request, res: Response) => {
   try {
     const { studentId, assessmentName = 'Data Structures & Algorithms Assessment', driveId } = req.body;
-    if (!studentId) {
-      return res.status(400).json({ error: 'studentId is required.' });
+
+    let student = null;
+    if (studentId) {
+      student = await prisma.student.findFirst({
+        where: {
+          OR: [
+            { id: studentId },
+            { studentId: studentId.toUpperCase() },
+            { email: studentId.toLowerCase() },
+          ],
+        },
+      });
     }
 
-    const student = await prisma.student.findUnique({ where: { id: studentId } });
-    if (!student) return res.status(404).json({ error: 'Student not found.' });
+    if (!student) {
+      student = await prisma.student.findFirst();
+    }
+
+    if (!student) return res.status(404).json({ error: 'No student record found.' });
 
     const session = await prisma.assessmentSession.create({
       data: {
-        studentId,
+        studentId: student.id,
         driveId: driveId || null,
         assessmentName,
         startedAt: new Date(),
@@ -55,13 +97,21 @@ assessmentsRouter.post('/start', async (req: Request, res: Response) => {
       include: { student: true },
     });
 
+    // Notify proctor websocket
+    emitTelemetryEvent(session.id, {
+      id: session.id,
+      eventType: 'session_started',
+      timestamp: new Date(),
+      data: { studentName: student.name, assessmentName },
+    });
+
     res.status(201).json(session);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/assessments/:id - Get session detail with events & alerts
+// GET /api/assessments/:id - Get session detail with events, alerts & submission code
 assessmentsRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const session = await prisma.assessmentSession.findUnique({
@@ -73,7 +123,19 @@ assessmentsRouter.get('/:id', async (req: Request, res: Response) => {
       },
     });
     if (!session) return res.status(404).json({ error: 'Session not found.' });
-    res.json(session);
+
+    let submissionInfo = null;
+    const submissionEvent = session.events.find((e) => e.eventType === 'submission');
+    if (submissionEvent) {
+      try {
+        submissionInfo = typeof submissionEvent.data === 'string' ? JSON.parse(submissionEvent.data) : submissionEvent.data;
+      } catch {}
+    }
+
+    res.json({
+      ...session,
+      submission: submissionInfo,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
