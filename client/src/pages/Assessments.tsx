@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useApi } from '../hooks/useApi';
 import { api } from '../lib/api';
 import {
   Code2, Clock, ShieldCheck, AlertTriangle, Eye, Activity,
-  Clipboard, MonitorX, Keyboard, ChevronRight,
+  Clipboard, MonitorX, Keyboard, ChevronRight, Terminal, ArrowUpRight
 } from 'lucide-react';
 
 const riskColors: Record<string, string> = {
@@ -24,6 +25,7 @@ const eventIcons: Record<string, React.ReactNode> = {
 };
 
 export const AssessmentsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { data: sessions, loading } = useApi(() => api.getAssessments());
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const { data: sessionDetail } = useApi(
@@ -33,12 +35,25 @@ export const AssessmentsPage: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="section-title flex items-center gap-3">
-          <Code2 className="w-7 h-7 text-primary-500" />
-          Coding Assessments
-        </h1>
-        <p className="text-surface-500 mt-1">Monitor coding assessment sessions and integrity signals</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="section-title flex items-center gap-3">
+            <Code2 className="w-7 h-7 text-primary-500" />
+            Coding Assessments &amp; Proctoring Hub
+          </h1>
+          <p className="text-surface-500 mt-1">
+            Monitor real-time candidate assessment sessions, keystroke dynamics, and AI computer-vision integrity
+          </p>
+        </div>
+
+        <button
+          onClick={() => navigate('/candidate-sandbox')}
+          className="btn-primary text-xs py-2 px-4 flex items-center gap-2 shadow-md shadow-indigo-500/20 cursor-pointer self-start sm:self-auto"
+        >
+          <Terminal className="w-4 h-4" />
+          <span>Launch Candidate Sandbox (Interactive Preview)</span>
+          <ArrowUpRight className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       <div className="flex gap-6">

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '../lib/api';
+import { useAuthStore } from '../lib/authStore';
 import { getSocket } from '../lib/socket';
 import { initFaceDetector, detectFaces, type FaceDetectionResult } from '../lib/faceDetector';
 import { PROBLEMS_BANK, Problem, TestCase } from '../lib/problems';
@@ -8,10 +10,12 @@ import {
   Play, CheckCircle2, AlertTriangle, ShieldCheck,
   Send, Clock, ShieldAlert, Sparkles, Terminal,
   Camera, Building2, Check, RotateCcw, Copy, Loader2, Video,
-  Maximize2, Scan, AlertCircle, RefreshCw, X, Eye, UserX, Users
+  Maximize2, Scan, AlertCircle, RefreshCw, X, Eye, UserX, Users, LogOut, User
 } from 'lucide-react';
 
 export const CandidateAssessment: React.FC = () => {
+  const navigate = useNavigate();
+  const { user, role } = useAuthStore();
   const [sessions, setSessions] = useState<any[]>([]);
   const [currentSession, setCurrentSession] = useState<any>(null);
 
@@ -465,40 +469,60 @@ export const CandidateAssessment: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-[calc(100vh-3.5rem)] flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden select-none">
+    <div className="w-screen h-screen flex flex-col bg-zinc-950 text-zinc-100 overflow-hidden select-none">
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* ─── 1. TOP NAV & CONTROLS TOOLBAR ─── */}
-      <div className="h-12 border-b border-zinc-800/80 bg-zinc-900/90 px-4 flex items-center justify-between gap-3 flex-shrink-0">
-        {/* Left: Problem Dropdown & Difficulty */}
-        <div className="flex items-center gap-2.5">
-          <select
-            value={selectedProblemId}
-            onChange={(e) => setSelectedProblemId(e.target.value)}
-            className="bg-zinc-800 border border-zinc-700/80 text-white text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-primary-500 cursor-pointer"
-          >
-            {PROBLEMS_BANK.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.title}
-              </option>
-            ))}
-          </select>
+      {/* ─── 1. STANDALONE PROCTORED EXAMINATION TOP TOOLBAR ─── */}
+      <div className="h-12 border-b border-zinc-800 bg-zinc-900/95 px-4 flex items-center justify-between gap-3 flex-shrink-0 z-30">
+        {/* Left: Branding & Candidate Badge & Problem Selector */}
+        <div className="flex items-center gap-3">
+          {/* Logo */}
+          <div className="flex items-center gap-2 pr-2 border-r border-zinc-800">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-xs text-white shadow-sm">
+              TM
+            </div>
+            <span className="font-bold text-xs text-white hidden md:inline">
+              TalentMatrix <span className="text-[10px] text-purple-400 font-mono font-normal">Proctor IDE</span>
+            </span>
+          </div>
 
-          <span
-            className={`px-2 py-0.5 text-[11px] font-bold rounded-md border ${
-              currentProblem.difficulty === 'Easy'
-                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                : currentProblem.difficulty === 'Medium'
-                ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
-            }`}
-          >
-            {currentProblem.difficulty}
-          </span>
+          {/* Active Candidate Badge */}
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700 text-xs text-zinc-300">
+            <User className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="font-semibold text-white truncate max-w-[140px]">
+              {user?.name || 'Candidate'}
+            </span>
+            <span className="text-[10px] text-zinc-400 font-mono">
+              ({user?.studentId || (role === 'student' ? 'STU1001' : 'Staff Mode')})
+            </span>
+          </div>
 
-          <span className="text-[11px] text-zinc-400 font-medium hidden sm:flex items-center gap-1">
-            <Building2 className="w-3.5 h-3.5 text-zinc-500" /> {currentProblem.company}
-          </span>
+          {/* Problem Dropdown */}
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedProblemId}
+              onChange={(e) => setSelectedProblemId(e.target.value)}
+              className="bg-zinc-800 border border-zinc-700 text-white text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500 cursor-pointer"
+            >
+              {PROBLEMS_BANK.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
+                </option>
+              ))}
+            </select>
+
+            <span
+              className={`px-2 py-0.5 text-[11px] font-bold rounded-md border ${
+                currentProblem.difficulty === 'Easy'
+                  ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                  : currentProblem.difficulty === 'Medium'
+                  ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                  : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+              }`}
+            >
+              {currentProblem.difficulty}
+            </span>
+          </div>
         </div>
 
         {/* Center: Language & Run Actions */}
@@ -506,7 +530,7 @@ export const CandidateAssessment: React.FC = () => {
           <select
             value={language}
             onChange={(e: any) => setLanguage(e.target.value)}
-            className="bg-zinc-800 border border-zinc-700/80 text-zinc-200 text-xs font-semibold rounded-lg px-2.5 py-1.5 cursor-pointer focus:outline-none"
+            className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs font-semibold rounded-lg px-2.5 py-1.5 cursor-pointer focus:outline-none"
           >
             <option value="typescript">TypeScript</option>
             <option value="javascript">JavaScript</option>
@@ -516,7 +540,7 @@ export const CandidateAssessment: React.FC = () => {
           <button
             onClick={handleRunCode}
             disabled={isRunningCode}
-            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold px-3.5 py-1.5 rounded-lg border border-zinc-700/80 flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold px-3 py-1.5 rounded-lg border border-zinc-700 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             {isRunningCode ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current text-emerald-400" />}
             <span>Run</span>
@@ -525,26 +549,57 @@ export const CandidateAssessment: React.FC = () => {
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="bg-primary-600 hover:bg-primary-500 text-white text-xs font-bold px-4 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+            className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
           >
             {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
             <span>Submit</span>
           </button>
         </div>
 
-        {/* Right: Live Proctor Badges & Timer */}
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700/70 text-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[11px] font-mono text-emerald-400 font-bold">
-              Auth: {currentSession?.authenticityScore ?? 96}%
-            </span>
-          </div>
+        {/* Right: Camera Status, Timer & Exit Button */}
+        <div className="flex items-center gap-2">
+          {/* Camera Status Button */}
+          <button
+            onClick={() => setShowProctorModal(true)}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1.5 transition-all cursor-pointer ${
+              cameraStatus === 'multiple_faces' || cameraStatus === 'face_absent'
+                ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-bounce'
+                : 'bg-zinc-800/80 text-zinc-200 border-zinc-700 hover:bg-zinc-700'
+            }`}
+            title="Inspect camera diagnostic and violations"
+          >
+            <Video className="w-3.5 h-3.5 text-purple-400" />
+            <span className="hidden sm:inline">Camera</span>
+            <span
+              className={`w-2 h-2 rounded-full ${
+                cameraStatus === 'multiple_faces'
+                  ? 'bg-rose-500'
+                  : cameraStatus === 'face_absent'
+                  ? 'bg-amber-500'
+                  : 'bg-emerald-500 animate-pulse'
+              }`}
+            />
+          </button>
 
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700/70 text-zinc-200 text-xs font-mono font-bold">
+          {/* Time Remaining */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700 text-zinc-200 text-xs font-mono font-bold">
             <Clock className="w-3.5 h-3.5 text-amber-400" />
             <span>{formatTime(timeRemaining)}</span>
           </div>
+
+          {/* Exit Exam Button */}
+          <button
+            onClick={() => {
+              if (window.confirm('Are you sure you want to exit the assessment environment?')) {
+                navigate(role === 'student' ? '/student-portal' : '/assessments');
+              }
+            }}
+            className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-rose-900/40 text-zinc-400 hover:text-rose-300 border border-zinc-700 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+            title="Exit assessment and return to portal"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Exit Exam</span>
+          </button>
         </div>
       </div>
 

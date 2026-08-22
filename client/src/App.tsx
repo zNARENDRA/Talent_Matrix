@@ -1,4 +1,4 @@
-﻿import React, { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAppStore } from './store/appStore';
@@ -72,7 +72,6 @@ function AppLayout() {
             <Route path="/yearly-reports" element={<PageWrapper><YearlyReports /></PageWrapper>} />
             <Route path="/scheduler" element={<PageWrapper><SchedulerPage /></PageWrapper>} />
             <Route path="/assessments" element={<PageWrapper><AssessmentsPage /></PageWrapper>} />
-            <Route path="/candidate-sandbox" element={<PageWrapper><CandidateAssessment /></PageWrapper>} />
             <Route path="/anomalies" element={<PageWrapper><AnomalyCenterPage /></PageWrapper>} />
             <Route path="/analytics" element={<PageWrapper><AnalyticsPage /></PageWrapper>} />
             <Route path="/reports" element={<PageWrapper><ReportsPage /></PageWrapper>} />
@@ -110,6 +109,8 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        {/* Dedicated Standalone Proctored Examination Sandbox (Edge-to-edge full-screen, no sidebar/topbar) */}
+        <Route path="/candidate-sandbox" element={<CandidateAssessment />} />
         <Route path="/*" element={<AppLayout />} />
       </Routes>
     </BrowserRouter>

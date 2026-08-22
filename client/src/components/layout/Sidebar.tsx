@@ -30,7 +30,6 @@ export const Sidebar: React.FC = () => {
     { path: '/companies', label: 'Companies', icon: Building2 },
     { path: '/scheduler', label: 'Interview Scheduler', icon: CalendarClock },
     { path: '/assessments', label: 'Coding Assessments', icon: Code2 },
-    { path: '/candidate-sandbox', label: 'Candidate Sandbox', icon: Terminal },
     { path: '/anomalies', label: 'Anomaly Center', icon: ShieldAlert },
     { path: '/analytics', label: 'Analytics', icon: BarChart3 },
     { path: '/reports', label: 'Quick Reports', icon: FileText },
@@ -40,7 +39,7 @@ export const Sidebar: React.FC = () => {
 
   const studentNavItems = [
     { path: '/student-portal', label: 'My Student Portal', icon: GraduationCap },
-    { path: '/candidate-sandbox', label: 'Coding Sandbox', icon: Terminal },
+    { path: '/candidate-sandbox', label: 'Take Coding Assessment', icon: Terminal },
     { path: '/drives', label: 'Explore Drives', icon: Megaphone },
     { path: '/companies', label: 'Companies', icon: Building2 },
     { path: '/analytics', label: 'Placement Stats', icon: BarChart3 },
