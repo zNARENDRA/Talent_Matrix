@@ -54,7 +54,6 @@ export const CandidateAssessment: React.FC = () => {
   const lastKeyTimeRef = useRef<number>(Date.now());
   const blurStartTimeRef = useRef<number | null>(null);
 
-  // Update starter code when problem or language changes
   useEffect(() => {
     setCode(currentProblem.starterCode[language]);
     setTestResults([]);
@@ -62,7 +61,6 @@ export const CandidateAssessment: React.FC = () => {
     setExecutionStdout('');
   }, [selectedProblemId, language]);
 
-  // Timer countdown
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeRemaining((prev) => (prev > 0 ? prev - 1 : 0));
@@ -76,7 +74,6 @@ export const CandidateAssessment: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // 1. Fetch active session
   useEffect(() => {
     api.getAssessments({ limit: '10' }).then((res) => {
       if (res.data && res.data.length > 0) {
@@ -86,7 +83,6 @@ export const CandidateAssessment: React.FC = () => {
     }).catch(console.error);
   }, []);
 
-  // 2. Connect Socket.IO
   useEffect(() => {
     if (!currentSession) return;
     const socket = getSocket();
@@ -106,7 +102,6 @@ export const CandidateAssessment: React.FC = () => {
     };
   }, [currentSession?.id]);
 
-  // 3. Tab Visibility & Window Switching Listeners
   useEffect(() => {
     if (!currentSession) return;
 
@@ -160,7 +155,6 @@ export const CandidateAssessment: React.FC = () => {
     };
   }, [currentSession?.id]);
 
-  // 4. Initialize Webcam & AI Face Detection
   useEffect(() => {
     initFaceDetector().catch(() => {});
     startWebcam();
@@ -200,7 +194,6 @@ export const CandidateAssessment: React.FC = () => {
     setCameraActive(false);
   };
 
-  // Perform AI Face Scan periodically
   const performFaceScan = async (): Promise<FaceDetectionResult> => {
     if (!videoRef.current || !canvasRef.current) {
       return { status: 'face_locked', confidence: 96, faceCount: 1, message: 'Webcam ready' };
@@ -224,7 +217,6 @@ export const CandidateAssessment: React.FC = () => {
     }
   };
 
-  // Periodic Face Scan loop
   useEffect(() => {
     if (!cameraActive || !currentSession?.id) return;
 
@@ -240,7 +232,6 @@ export const CandidateAssessment: React.FC = () => {
           message: `🚨 Multiple Persons Detected! ${detection.faceCount} faces visible in camera frame.`,
           details: `The AI proctor detected ${detection.faceCount} people in frame. Examination policy strictly forbids additional people in the testing environment.`,
         });
-        // Auto-trigger proctor diagnostic modal if critical violation
         setShowProctorModal(true);
 
         api.sendTelemetryEvent(currentSession.id, {
@@ -266,7 +257,6 @@ export const CandidateAssessment: React.FC = () => {
     return () => clearInterval(interval);
   }, [cameraActive, currentSession?.id]);
 
-  // Manual Face Scan Trigger
   const handleManualScan = async () => {
     setIsScanningFace(true);
     try {
@@ -281,12 +271,14 @@ export const CandidateAssessment: React.FC = () => {
           message: `🚨 Multiple Persons Detected! ${result.faceCount} faces visible.`,
           details: `Only 1 candidate allowed. ${result.faceCount} faces found in view.`,
         });
+        setShowProctorModal(true);
       } else if (result.status === 'face_absent') {
         setActiveViolation({
           type: 'face_absent',
           message: '⚠️ Face Absent: No face detected in camera view.',
           details: 'Please align yourself directly with the camera.',
         });
+        setShowProctorModal(true);
       } else {
         setActiveViolation(null);
       }
@@ -295,7 +287,6 @@ export const CandidateAssessment: React.FC = () => {
     }
   };
 
-  // Demo Simulation Triggers for Evaluation & Testing
   const handleSimulateMultipleFaces = () => {
     setCameraStatus('multiple_faces');
     setDetectedFacesCount(2);
@@ -341,7 +332,6 @@ export const CandidateAssessment: React.FC = () => {
     setActiveViolation(null);
   };
 
-  // Keystrokes & Pastes
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const now = Date.now();
     const flightTimeMs = now - lastKeyTimeRef.current;
@@ -367,7 +357,6 @@ export const CandidateAssessment: React.FC = () => {
     }
   };
 
-  // In-Browser Sandbox Execution
   const executeCodeSandbox = (userCode: string, testList: TestCase[]): { results: TestCase[]; allPassed: boolean; stdout: string } => {
     const results: TestCase[] = [];
     let stdoutBuffer = '';
@@ -543,30 +532,14 @@ export const CandidateAssessment: React.FC = () => {
           </button>
         </div>
 
-        {/* Right: Camera Diagnostic Button, Live Proctor Badges & Timer */}
+        {/* Right: Live Proctor Badges & Timer */}
         <div className="flex items-center gap-2.5">
-          {/* Diagnostic Modal Launcher Button */}
-          <button
-            onClick={() => setShowProctorModal(true)}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1.5 transition-all cursor-pointer ${
-              cameraStatus === 'multiple_faces' || cameraStatus === 'face_absent'
-                ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-bounce'
-                : 'bg-zinc-800/80 text-zinc-200 border-zinc-700/70 hover:bg-zinc-700'
-            }`}
-            title="Inspect camera diagnostic and violations"
-          >
-            <Video className="w-3.5 h-3.5 text-purple-400" />
-            <span className="hidden sm:inline">Camera Status</span>
-            <span
-              className={`w-2 h-2 rounded-full ${
-                cameraStatus === 'multiple_faces'
-                  ? 'bg-rose-500'
-                  : cameraStatus === 'face_absent'
-                  ? 'bg-amber-500'
-                  : 'bg-emerald-500 animate-pulse'
-              }`}
-            />
-          </button>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700/70 text-xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[11px] font-mono text-emerald-400 font-bold">
+              Auth: {currentSession?.authenticityScore ?? 96}%
+            </span>
+          </div>
 
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700/70 text-zinc-200 text-xs font-mono font-bold">
             <Clock className="w-3.5 h-3.5 text-amber-400" />
@@ -575,7 +548,7 @@ export const CandidateAssessment: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── ACTIVE PROCTOR VIOLATION WARNING BANNER (with direct Inspect Button) ─── */}
+      {/* ─── ACTIVE PROCTOR VIOLATION WARNING BANNER ─── */}
       {activeViolation && (
         <div className="bg-rose-600 text-white text-xs font-bold px-4 py-2 flex items-center justify-between shadow-lg animate-pulse z-40 border-b border-rose-500 flex-shrink-0">
           <div className="flex items-center gap-2">
@@ -614,7 +587,7 @@ export const CandidateAssessment: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-1 p-5 overflow-y-auto space-y-5 text-xs select-text">
+          <div className="flex-1 p-4 sm:p-5 overflow-y-auto space-y-4 text-xs select-text">
             <div>
               <h1 className="text-base font-bold text-white mb-2">{currentProblem.title}</h1>
               <p className="text-zinc-300 leading-relaxed whitespace-pre-line text-xs font-normal">
@@ -623,31 +596,121 @@ export const CandidateAssessment: React.FC = () => {
             </div>
 
             {/* Constraints directly below */}
-            <div className="pt-3 border-t border-zinc-800/80 space-y-2">
+            <div className="pt-3 border-t border-zinc-800/80 space-y-1.5">
               <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
                 Constraints
               </span>
-              <ul className="list-disc pl-4 space-y-1.5 text-zinc-300 font-mono text-xs">
+              <ul className="list-disc pl-4 space-y-1 text-zinc-300 font-mono text-xs">
                 {currentProblem.constraints.map((c, i) => (
                   <li key={i}>{c}</li>
                 ))}
               </ul>
             </div>
 
-            {/* Quick Reference Example */}
-            <div className="pt-3 border-t border-zinc-800/80 space-y-2 font-mono text-xs">
-              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block font-sans">
-                Sample Test Case Reference
-              </span>
-              <div className="p-3 rounded-lg bg-zinc-900/90 border border-zinc-800/90 space-y-1 text-xs">
-                <div>
-                  <span className="text-zinc-500 font-sans">Input: </span>
-                  <code className="text-indigo-300 font-semibold">{currentProblem.examples[0].input}</code>
+            {/* ─── EXACT HUD LIVE VIDEO PROCTORING FEED (Rendered as in User's Screenshot) ─── */}
+            <div className="pt-3 border-t border-zinc-800/80">
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-zinc-800 shadow-md space-y-2">
+                {/* Header with Title & Turn Off / Expand */}
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <div className="flex items-center gap-1.5 text-cyan-400">
+                    <Video className="w-4 h-4 text-cyan-400" />
+                    <span className="uppercase tracking-wider text-[11px] font-extrabold text-white">
+                      LIVE VIDEO PROCTORING FEED
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => (cameraActive ? stopWebcam() : startWebcam())}
+                      className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer"
+                    >
+                      {cameraActive ? 'Turn Off' : 'Turn On'}
+                    </button>
+                    <button
+                      onClick={() => setShowProctorModal(true)}
+                      className="text-zinc-400 hover:text-white cursor-pointer p-0.5"
+                      title="Expand Diagnostic View"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-zinc-500 font-sans">Expected Output: </span>
-                  <code className="text-emerald-400 font-bold">{currentProblem.examples[0].output}</code>
+
+                {/* Video Feed with High-Tech HUD Overlay */}
+                <div className="relative rounded-xl overflow-hidden bg-black border border-zinc-700/80 shadow-inner h-40 flex items-center justify-center">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+
+                  {/* Glowing HUD Framing Border */}
+                  <div
+                    className={`absolute inset-2.5 rounded-lg border-2 pointer-events-none transition-all ${
+                      cameraStatus === 'multiple_faces'
+                        ? 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.4)] animate-pulse'
+                        : cameraStatus === 'face_absent'
+                        ? 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)] border-dashed'
+                        : 'border-emerald-400/80 shadow-[0_0_15px_rgba(52,211,153,0.3)]'
+                    }`}
+                  >
+                    {/* Top HUD Bar */}
+                    <div className="absolute top-1 left-1.5 right-1.5 flex items-center justify-between text-[10px] font-mono font-bold bg-black/80 px-2 py-0.5 rounded text-emerald-400">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>REC • 30FPS</span>
+                      </div>
+                      <div>Face: {faceConfidence}% Match</div>
+                    </div>
+
+                    {/* Bottom HUD Bar */}
+                    <div className="absolute bottom-1 left-1.5 right-1.5 flex items-center justify-between text-[10px] font-mono font-bold bg-black/80 px-2 py-0.5 rounded text-emerald-400">
+                      <div className="flex items-center gap-1">
+                        <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                        <span>
+                          {cameraStatus === 'multiple_faces'
+                            ? '⚠️ Breach Detected'
+                            : cameraStatus === 'face_absent'
+                            ? '⚠️ Face Not in View'
+                            : 'Candidate Verified'}
+                        </span>
+                      </div>
+                      <div>
+                        {cameraStatus === 'multiple_faces'
+                          ? `${detectedFacesCount} Faces`
+                          : `${detectedFacesCount} Face Detected`}
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
+                {/* HUD Action Buttons */}
+                <div className="grid grid-cols-12 gap-2 pt-1">
+                  <button
+                    onClick={handleManualScan}
+                    disabled={isScanningFace}
+                    className="col-span-7 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-extrabold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                  >
+                    {isScanningFace ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-950" />
+                    ) : (
+                      <Scan className="w-3.5 h-3.5" />
+                    )}
+                    <span>Scan Face Live</span>
+                  </button>
+
+                  <button
+                    onClick={handleSimulateMultipleFaces}
+                    className="col-span-5 bg-zinc-800 hover:bg-zinc-750 text-amber-400 border border-zinc-700 text-[11px] font-bold py-2 px-2 rounded-lg text-center transition-all cursor-pointer truncate"
+                  >
+                    Demo Violation Alert
+                  </button>
+                </div>
+
+                <p className="text-[10px] text-zinc-400 text-center">
+                  Live AI continuously verifies candidate presence &amp; room integrity.
+                </p>
               </div>
             </div>
           </div>
@@ -744,41 +807,6 @@ export const CandidateAssessment: React.FC = () => {
               )}
             </div>
           </div>
-
-          {/* ─── PERMANENT VISIBLE WEBCAM PROCTOR (Bottom Right) ─── */}
-          <div className="absolute bottom-48 right-4 z-30 w-40 h-32 bg-zinc-900 rounded-xl border border-zinc-700/80 shadow-2xl overflow-hidden flex flex-col pointer-events-auto">
-            <div
-              className="relative flex-1 bg-black cursor-pointer group"
-              onClick={() => setShowProctorModal(true)}
-              title="Click to inspect camera diagnostics and violation details"
-            >
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute top-1 left-1 px-1 rounded bg-black/70 text-[9px] font-mono text-emerald-400 font-bold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                {faceConfidence}%
-              </div>
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-[10px] font-bold gap-1">
-                <Maximize2 className="w-3 h-3" /> Inspect
-              </div>
-            </div>
-            <div className="px-2 py-1 bg-zinc-950 border-t border-zinc-800 text-[10px] font-mono text-zinc-300 flex items-center justify-between">
-              <span className="flex items-center gap-1">
-                <Video className="w-3 h-3 text-purple-400" /> Proctor
-              </span>
-              <button
-                onClick={() => setShowProctorModal(true)}
-                className="text-[9px] text-indigo-400 hover:text-indigo-300 font-bold cursor-pointer underline"
-              >
-                Diagnose
-              </button>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -825,7 +853,6 @@ export const CandidateAssessment: React.FC = () => {
 
             {/* Video & Status Breakdown */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch">
-              {/* Enlarged Video Box with live overlay */}
               <div className="md:col-span-6 relative bg-black rounded-xl overflow-hidden border border-zinc-700 shadow-inner flex flex-col justify-center min-h-[200px]">
                 <video
                   ref={(el) => {
@@ -840,7 +867,6 @@ export const CandidateAssessment: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
 
-                {/* Face Frame Overlay */}
                 <div
                   className={`absolute inset-4 border-2 rounded-xl pointer-events-none transition-colors ${
                     cameraStatus === 'multiple_faces'
@@ -869,7 +895,6 @@ export const CandidateAssessment: React.FC = () => {
                 </div>
               </div>
 
-              {/* Status Explanation Card */}
               <div className="md:col-span-6 space-y-3 flex flex-col justify-between">
                 <div
                   className={`p-4 rounded-xl border text-xs space-y-2 ${
@@ -896,7 +921,6 @@ export const CandidateAssessment: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Diagnostics Grid */}
                 <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                   <div className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800">
                     <span className="text-zinc-500 text-[10px] block font-sans">Detected Faces:</span>
@@ -918,7 +942,7 @@ export const CandidateAssessment: React.FC = () => {
               </div>
             </div>
 
-            {/* Test Simulation Controls (For testing and evaluator demonstration) */}
+            {/* Test Simulation Controls */}
             <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800 space-y-2">
               <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
                 Proctor Violation Testing &amp; Diagnostic Tools
