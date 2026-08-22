@@ -79,7 +79,7 @@ export const Simulation: React.FC = () => {
       }));
 
       const res = await api.simulateAllocation({
-        season: '2026',
+        season: new Date().getFullYear().toString(),
         overrides: overrideList,
       });
 

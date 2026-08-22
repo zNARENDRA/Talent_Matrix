@@ -64,19 +64,19 @@
 
 @layer components {
   .glass-card {
-    @apply bg-white border border-surface-200 rounded-xl;
+    @apply bg-white/80 backdrop-blur-sm border border-surface-200 rounded-xl shadow-sm;
   }
 
   .dark .glass-card {
-    @apply bg-zinc-900/90 border-zinc-800;
+    @apply bg-surface-900/80 border-surface-700;
   }
 
   .kpi-card {
-    @apply bg-white border border-surface-200 rounded-xl p-5 hover:border-primary-500/50 transition-colors cursor-pointer;
+    @apply bg-white/80 backdrop-blur-sm border border-surface-200 rounded-xl shadow-sm p-5 hover:shadow-md transition-all duration-300 cursor-pointer;
   }
 
   .dark .kpi-card {
-    @apply bg-zinc-900/90 border-zinc-800;
+    @apply bg-surface-900/80 border-surface-700;
   }
 
   .sidebar-item {

@@ -244,3 +244,171 @@ studentPortalRouter.post('/preferences', async (req: Request, res: Response) => 
     res.status(500).json({ error: err.message });
   }
 });
+
+// GET /api/student-portal/available-drives - List drives the student can apply to
+studentPortalRouter.get('/available-drives', async (req: Request, res: Response) => {
+  try {
+    const studentIdOrUid = req.headers['x-student-id'] as string || req.query.studentId as string;
+
+    // Get the active recruitment cycle
+    const activeCycle = await prisma.recruitmentCycle.findFirst({
+      where: { status: 'ACTIVE' },
+    });
+
+    // Get all drives (optionally filtered to the active cycle)
+    const drives = await prisma.recruitmentDrive.findMany({
+      where: activeCycle ? { recruitmentCycleId: activeCycle.id } : {},
+      include: { company: true },
+      orderBy: { packageLpa: 'desc' },
+    });
+
+    // If we have a student, mark which drives they've already applied to
+    let appliedDriveIds: string[] = [];
+    if (studentIdOrUid) {
+      const student = await prisma.student.findFirst({
+        where: {
+          OR: [{ id: studentIdOrUid }, { studentId: studentIdOrUid.toUpperCase() }],
+        },
+        include: { applications: { select: { driveId: true } } },
+      });
+      if (student) {
+        appliedDriveIds = student.applications.map((a) => a.driveId);
+      }
+    }
+
+    const enrichedDrives = drives.map((d) => ({
+      id: d.id,
+      companyName: d.company.name,
+      companyId: d.company.id,
+      role: d.role,
+      packageLpa: d.packageLpa,
+      offerTier: d.offerTier,
+      positions: d.positions,
+      status: d.status,
+      alreadyApplied: appliedDriveIds.includes(d.id),
+    }));
+
+    res.json({ drives: enrichedDrives });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/student-portal/apply - Student applies to a recruitment drive
+studentPortalRouter.post('/apply', async (req: Request, res: Response) => {
+  try {
+    const { studentId, driveId } = req.body;
+    if (!studentId || !driveId) {
+      return res.status(400).json({ error: 'studentId and driveId are required' });
+    }
+
+    const student = await prisma.student.findFirst({
+      where: {
+        OR: [{ id: studentId }, { studentId: studentId.toUpperCase() }],
+      },
+    });
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    const drive = await prisma.recruitmentDrive.findUnique({
+      where: { id: driveId },
+      include: { company: true },
+    });
+    if (!drive) {
+      return res.status(404).json({ error: 'Recruitment drive not found' });
+    }
+
+    // Check if already applied
+    const existing = await prisma.application.findFirst({
+      where: { studentId: student.id, driveId: drive.id },
+    });
+    if (existing) {
+      return res.status(409).json({ error: 'Already applied to this drive', applicationId: existing.id });
+    }
+
+    const application = await prisma.$transaction(async (tx) => {
+      const app = await tx.application.create({
+        data: {
+          studentId: student.id,
+          driveId: drive.id,
+          status: 'applied',
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          action: 'student_applied',
+          entity: 'application',
+          entityId: app.id,
+          description: `Student ${student.name} (${student.studentId}) applied to ${drive.company.name} — ${drive.role} (₹${drive.packageLpa} LPA, ${drive.offerTier}).`,
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          type: 'drive',
+          title: 'New Application',
+          message: `${student.name} (${student.studentId}) applied to ${drive.company.name} — ${drive.role}.`,
+          severity: 'info',
+        },
+      });
+
+      return app;
+    });
+
+    res.json({ success: true, applicationId: application.id, message: `Applied to ${drive.company.name} — ${drive.role}` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/student-portal/profile - Student updates their own profile
+studentPortalRouter.patch('/profile', async (req: Request, res: Response) => {
+  try {
+    const { studentId, name, email, phone, department } = req.body;
+    if (!studentId) {
+      return res.status(400).json({ error: 'studentId is required' });
+    }
+
+    const student = await prisma.student.findFirst({
+      where: {
+        OR: [{ id: studentId }, { studentId: studentId.toUpperCase() }],
+      },
+    });
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    if (department !== undefined) updateData.department = department;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.student.update({
+        where: { id: student.id },
+        data: updateData,
+      });
+
+      const changedFields = Object.keys(updateData).join(', ');
+      await tx.auditLog.create({
+        data: {
+          action: 'profile_update',
+          entity: 'student',
+          entityId: student.id,
+          description: `Student ${student.name} (${student.studentId}) updated profile fields: ${changedFields}.`,
+        },
+      });
+    });
+
+    res.json({ success: true, message: 'Profile updated successfully', updatedFields: Object.keys(updateData) });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});

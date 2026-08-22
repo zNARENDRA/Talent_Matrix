@@ -82,6 +82,15 @@ export const api = {
     request<any>(`/student-portal/offers/${offerId}/respond`, { method: 'POST', body: JSON.stringify({ action }) }),
   submitStudentPreferences: (data: { studentId: string; preferences: { driveId: string; rank: number }[] }) =>
     request<any>('/student-portal/preferences', { method: 'POST', body: JSON.stringify(data) }),
+  getAvailableDrives: (studentId?: string) => {
+    const qs = studentId ? `?studentId=${studentId}` : '';
+    const headers: Record<string, string> = studentId ? { 'x-student-id': studentId } : {};
+    return request<any>(`/student-portal/available-drives${qs}`, { headers });
+  },
+  applyToDrive: (data: { studentId: string; driveId: string }) =>
+    request<any>('/student-portal/apply', { method: 'POST', body: JSON.stringify(data) }),
+  updateStudentProfile: (studentId: string, data: { name?: string; email?: string; phone?: string; department?: string }) =>
+    request<any>('/student-portal/profile', { method: 'PATCH', body: JSON.stringify({ studentId, ...data }) }),
 
   // AI Service
   getAIStatus: () => request<any>('/ai/status'),

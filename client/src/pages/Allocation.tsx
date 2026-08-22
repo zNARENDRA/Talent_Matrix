@@ -43,8 +43,10 @@ export const AllocationPage: React.FC = () => {
     setPhase('running');
     try {
       // Execute Module A Many-to-One Gale-Shapley Allocation
+      const selectedCycle = cycles.find((c: any) => c.id === selectedCycleId);
+      const dynamicSeason = selectedCycle?.academicYear?.split('-')[0] || new Date().getFullYear().toString();
       const res = await api.runAllocation({
-        season: '2026',
+        season: dynamicSeason,
         recruitmentCycleId: selectedCycleId,
       });
       setResult(res);
