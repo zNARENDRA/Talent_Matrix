@@ -9,7 +9,7 @@ import {
   Clipboard, MonitorX, Keyboard, ChevronRight, Terminal, ArrowUpRight,
   RefreshCw, CheckCircle2, XCircle, Sparkles, User, Copy, Check,
   FileCode, Play, Award, Zap, AlertCircle, ShieldAlert, BrainCircuit,
-  Trash2, Loader2
+  Trash2, Loader2, Mic, Volume2
 } from 'lucide-react';
 
 const riskColors: Record<string, string> = {
@@ -29,6 +29,8 @@ const eventIcons: Record<string, React.ReactNode> = {
   submission: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />,
   webcam_multiple_faces: <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />,
   webcam_face_absence: <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />,
+  audio_speech_detected: <Mic className="w-3.5 h-3.5 text-rose-400 animate-pulse" />,
+  audio_noise_spike: <Volume2 className="w-3.5 h-3.5 text-amber-400" />,
   idle: <Clock className="w-3.5 h-3.5 text-zinc-500" />,
 };
 
@@ -529,6 +531,14 @@ export const AssessmentsPage: React.FC = () => {
                         )}
                         {event.eventType === 'webcam_multiple_faces' && (
                           <span className="text-rose-400 font-mono text-[10px]">({eventData.faceCount} faces detected)</span>
+                        )}
+                        {event.eventType === 'audio_speech_detected' && (
+                          <span className="text-rose-400 font-mono text-[10px]">
+                            ({eventData.volumeDb || -30}dB • {eventData.transcript ? `"${eventData.transcript.slice(0, 20)}..."` : 'Voice flagged'})
+                          </span>
+                        )}
+                        {event.eventType === 'audio_noise_spike' && (
+                          <span className="text-amber-400 font-mono text-[10px]">({eventData.volumeDb}dB spike)</span>
                         )}
                       </div>
                       <span className="text-[10px] text-zinc-500 font-mono">

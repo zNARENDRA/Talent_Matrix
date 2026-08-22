@@ -92,6 +92,14 @@ export const DEFAULT_SIGNAL_WEIGHTS: Record<string, { weight: number; thresholds
     weight: 1.5,
     thresholds: { low: 1, medium: 2, high: 4 }, // multiple persons detected in frame
   },
+  audio_speech_detected: {
+    weight: 1.5,
+    thresholds: { low: 1, medium: 3, high: 6 }, // speech or conversation detected during exam
+  },
+  audio_noise_spike: {
+    weight: 0.8,
+    thresholds: { low: 2, medium: 5, high: 9 }, // loud ambient commotion or sound disturbances
+  },
 };
 
 // ─── Telemetry Processor ───────────────────────────────────────
@@ -107,7 +115,7 @@ export class TelemetryProcessor {
   }
 }
 
-// ─── Signal Extractor (with Shannon Entropy & Webcam Telemetry) ─
+// ─── Signal Extractor (with Shannon Entropy, Webcam & Audio Telemetry) ─
 export class SignalExtractor {
   extract(events: TelemetryEventData[]): { signals: Record<string, number>; maxEntropy: number; entropyClassification: string } {
     const signals: Record<string, number> = {
@@ -122,6 +130,8 @@ export class SignalExtractor {
       webcam_face_absence: 0,
       webcam_blocked: 0,
       webcam_multiple_faces: 0,
+      audio_speech_detected: 0,
+      audio_noise_spike: 0,
     };
 
     let maxPasteSize = 0;
@@ -184,6 +194,14 @@ export class SignalExtractor {
 
         case 'webcam_multiple_faces':
           signals.webcam_multiple_faces++;
+          break;
+
+        case 'audio_speech_detected':
+          signals.audio_speech_detected++;
+          break;
+
+        case 'audio_noise_spike':
+          signals.audio_noise_spike++;
           break;
 
         case 'idle':

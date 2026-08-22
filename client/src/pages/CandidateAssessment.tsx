@@ -5,12 +5,14 @@ import { api } from '../lib/api';
 import { useAuthStore } from '../lib/authStore';
 import { getSocket } from '../lib/socket';
 import { initFaceDetector, detectFaces, type FaceDetectionResult } from '../lib/faceDetector';
+import { createAudioDetector, type AudioDetectorController, type AudioDetectionEvent } from '../lib/audioDetector';
 import { PROBLEMS_BANK, Problem, TestCase } from '../lib/problems';
 import {
   Play, CheckCircle2, AlertTriangle, ShieldCheck,
   Send, Clock, ShieldAlert, Sparkles, Terminal,
   Camera, Building2, Check, RotateCcw, Copy, Loader2, Video,
-  Maximize2, Scan, AlertCircle, RefreshCw, X, Eye, UserX, Users, LogOut, User
+  Maximize2, Scan, AlertCircle, RefreshCw, X, Eye, UserX, Users, LogOut, User,
+  Mic, MicOff, Volume2, VolumeX, Radio, Activity, MessageSquareWarning
 } from 'lucide-react';
 
 export const CandidateAssessment: React.FC = () => {
@@ -44,6 +46,15 @@ export const CandidateAssessment: React.FC = () => {
   const [copied, setCopied] = useState<boolean>(false);
   const [showProctorModal, setShowProctorModal] = useState<boolean>(false);
   const [isScanningFace, setIsScanningFace] = useState<boolean>(false);
+
+  // Audio Proctoring & Voice Detection State
+  const audioDetectorRef = useRef<AudioDetectorController | null>(null);
+  const [micActive, setMicActive] = useState<boolean>(false);
+  const [liveAudioVolume, setLiveAudioVolume] = useState<number>(0);
+  const [liveAudioDb, setLiveAudioDb] = useState<number>(-90);
+  const [speechDetectedNow, setSpeechDetectedNow] = useState<boolean>(false);
+  const [micSensitivity, setMicSensitivity] = useState<'low' | 'medium' | 'high'>('medium');
+  const [audioViolationsCount, setAudioViolationsCount] = useState<number>(0);
 
   // Active Violation Banner/Toast State
   const [activeViolation, setActiveViolation] = useState<{ type: string; message: string; details?: string } | null>(null);
@@ -178,12 +189,63 @@ export const CandidateAssessment: React.FC = () => {
     };
   }, []);
 
+  const handleAudioProctorEvent = (event: AudioDetectionEvent) => {
+    if (event.type === 'speech_detected') {
+      setSpeechDetectedNow(true);
+      setAudioViolationsCount((prev) => prev + 1);
+      setActiveViolation({
+        type: 'audio_speech',
+        message: event.message,
+        details: 'Human vocal conversation detected during assessment. Examination policies strictly forbid external verbal communication.',
+      });
+
+      if (currentSession?.id) {
+        api.sendTelemetryEvent(currentSession.id, {
+          eventType: 'audio_speech_detected',
+          data: {
+            volumeDb: event.volumeDb,
+            duration: event.duration || 1200,
+            transcript: event.transcript || '',
+            timestamp: new Date().toISOString(),
+          },
+        }).catch(console.error);
+      }
+
+      setTimeout(() => setSpeechDetectedNow(false), 4500);
+    } else if (event.type === 'noise_spike') {
+      setAudioViolationsCount((prev) => prev + 1);
+      setActiveViolation({
+        type: 'audio_noise',
+        message: event.message,
+        details: 'Loud acoustic spike or ambient noise disturbance detected in examination room.',
+      });
+
+      if (currentSession?.id) {
+        api.sendTelemetryEvent(currentSession.id, {
+          eventType: 'audio_noise_spike',
+          data: { volumeDb: event.volumeDb, timestamp: new Date().toISOString() },
+        }).catch(console.error);
+      }
+    }
+  };
+
   const startWebcam = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 30 } },
-        audio: false,
-      });
+      let stream: MediaStream;
+      try {
+        // Attempt unified Video + Microphone capture
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 30 } },
+          audio: true,
+        });
+      } catch {
+        // Fallback to video-only if microphone blocked
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 30 } },
+          audio: false,
+        });
+      }
+
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -195,19 +257,47 @@ export const CandidateAssessment: React.FC = () => {
       }
       setCameraActive(true);
       setCameraStatus('face_locked');
+
+      // Initialize real-time Audio Proctoring
+      if (stream.getAudioTracks().length > 0) {
+        const audioController = createAudioDetector(stream, handleAudioProctorEvent);
+        if (audioController) {
+          audioDetectorRef.current = audioController;
+          audioController.setSensitivity(micSensitivity);
+          setMicActive(true);
+        }
+      }
     } catch (err) {
       console.warn('Webcam start error:', err);
       setCameraActive(false);
+      setMicActive(false);
     }
   };
 
   const stopWebcam = () => {
+    if (audioDetectorRef.current) {
+      audioDetectorRef.current.stop();
+      audioDetectorRef.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
     setCameraActive(false);
+    setMicActive(false);
   };
+
+  // Poll live volume levels for HUD visualizer
+  useEffect(() => {
+    if (!micActive || !audioDetectorRef.current) return;
+    const pollInterval = setInterval(() => {
+      if (audioDetectorRef.current) {
+        setLiveAudioVolume(audioDetectorRef.current.getLiveVolume());
+        setLiveAudioDb(audioDetectorRef.current.getDecibels());
+      }
+    }, 120);
+    return () => clearInterval(pollInterval);
+  }, [micActive]);
 
   const performFaceScan = async (): Promise<FaceDetectionResult> => {
     if (!videoRef.current || !canvasRef.current) {
@@ -340,6 +430,43 @@ export const CandidateAssessment: React.FC = () => {
     }
   };
 
+  const handleSimulateSpeechDetected = () => {
+    setSpeechDetectedNow(true);
+    setAudioViolationsCount((prev) => prev + 1);
+    setActiveViolation({
+      type: 'audio_speech',
+      message: '🚨 Voice Activity Detected: External speech or spoken conversation flagged in room (-28 dB).',
+      details: 'Acoustic frequency analysis isolated human vocalization in speech band (300Hz-3400Hz).',
+    });
+    setShowProctorModal(true);
+
+    if (currentSession) {
+      api.sendTelemetryEvent(currentSession.id, {
+        eventType: 'audio_speech_detected',
+        data: { volumeDb: -28, isDemoSimulation: true, message: 'Voice speech detected in room', timestamp: new Date().toISOString() },
+      }).catch(() => {});
+    }
+
+    setTimeout(() => setSpeechDetectedNow(false), 5000);
+  };
+
+  const handleSimulateNoiseSpike = () => {
+    setAudioViolationsCount((prev) => prev + 1);
+    setActiveViolation({
+      type: 'audio_noise',
+      message: '⚠️ Loud Ambient Noise Spike: Room commotion or sudden audio disturbance (-14 dB).',
+      details: 'Acoustic amplitude spike exceeded the 75dB room disturbance threshold.',
+    });
+    setShowProctorModal(true);
+
+    if (currentSession) {
+      api.sendTelemetryEvent(currentSession.id, {
+        eventType: 'audio_noise_spike',
+        data: { volumeDb: -14, isDemoSimulation: true, timestamp: new Date().toISOString() },
+      }).catch(() => {});
+    }
+  };
+
   const handleResetToNormal = () => {
     setCameraStatus('face_locked');
     setDetectedFacesCount(1);
@@ -361,34 +488,57 @@ export const CandidateAssessment: React.FC = () => {
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const pastedText = e.clipboardData.getData('text');
-    const size = pastedText.length;
+    const text = e.clipboardData.getData('text');
+    const size = text.length;
+
+    setActiveViolation({
+      type: 'paste',
+      message: `📋 Large Paste Detected (${size} chars). Flagged in Proctor Audit Log.`,
+      details: `Candidate pasted ${size} characters directly into the IDE. Anomaly engine updated.`,
+    });
+
+    setTimeout(() => {
+      setActiveViolation((prev) => (prev?.type === 'paste' ? null : prev));
+    }, 4000);
 
     if (currentSession) {
       api.sendTelemetryEvent(currentSession.id, {
-        eventType: size > 400 ? 'code_insert' : 'paste',
-        data: { size, length: size, preview: pastedText.slice(0, 50), timestamp: new Date().toISOString() },
-      }).catch(console.error);
+        eventType: 'paste',
+        data: { size, preview: text.slice(0, 100), timestamp: new Date().toISOString() },
+      }).catch(() => {});
     }
   };
 
-  const executeCodeSandbox = (userCode: string, testList: TestCase[]): { results: TestCase[]; allPassed: boolean; stdout: string } => {
+  const executeCodeSandbox = (userCode: string, testCases: TestCase[]) => {
     const results: TestCase[] = [];
     let stdoutBuffer = '';
 
-    for (const tc of testList) {
+    for (const tc of testCases) {
       const startTime = performance.now();
       try {
-        let cleanCode = userCode.replace(/function\s+(\w+)\s*\([^)]*\)\s*:\s*[^{]+/g, 'function $1(');
-        cleanCode = cleanCode.replace(/:\s*[a-zA-Z0-9_<>\[\]|]+/g, '');
-
-        const runScript = `
-          ${cleanCode}
-          return ${currentProblem.functionName}(${tc.input});
+        const wrappedCode = `
+          ${userCode}
+          try {
+            if (typeof lengthOfLongestSubstring === 'function') {
+              return lengthOfLongestSubstring(${tc.input});
+            } else if (typeof lengthOfLIS === 'function') {
+              return lengthOfLIS(${tc.input});
+            } else if (typeof trap === 'function') {
+              return trap(${tc.input});
+            } else if (typeof minWindow === 'function') {
+              return minWindow(${tc.input});
+            } else if (typeof solve === 'function') {
+              return solve(${tc.input});
+            } else {
+              throw new Error('Solution function not found.');
+            }
+          } catch(e) {
+            throw e;
+          }
         `;
 
-        const executor = new Function(runScript);
-        const actualVal = executor();
+        const runner = new Function(wrappedCode);
+        const actualVal = runner();
         const endTime = performance.now();
         const runtimeMs = Math.round((endTime - startTime) * 100) / 100;
 
@@ -567,7 +717,7 @@ export const CandidateAssessment: React.FC = () => {
           </button>
         </div>
 
-        {/* Right: Camera Status, Timer & Exit Button */}
+        {/* Right: Camera Status, Audio Status, Timer & Exit Button */}
         <div className="flex items-center gap-2">
           {/* Camera Status Button */}
           <button
@@ -588,6 +738,35 @@ export const CandidateAssessment: React.FC = () => {
                   : cameraStatus === 'face_absent'
                   ? 'bg-amber-500'
                   : 'bg-emerald-500 animate-pulse'
+              }`}
+            />
+          </button>
+
+          {/* Audio Status Button */}
+          <button
+            onClick={() => setShowProctorModal(true)}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1.5 transition-all cursor-pointer ${
+              speechDetectedNow
+                ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 animate-bounce'
+                : 'bg-zinc-800/80 text-zinc-200 border-zinc-700 hover:bg-zinc-700'
+            }`}
+            title="Inspect Audio & Microphone Proctoring"
+          >
+            {speechDetectedNow ? (
+              <Mic className="w-3.5 h-3.5 text-rose-400 animate-pulse" />
+            ) : micActive ? (
+              <Mic className="w-3.5 h-3.5 text-emerald-400" />
+            ) : (
+              <MicOff className="w-3.5 h-3.5 text-zinc-500" />
+            )}
+            <span className="hidden sm:inline">Audio</span>
+            <span
+              className={`w-2 h-2 rounded-full ${
+                speechDetectedNow
+                  ? 'bg-rose-500 animate-ping'
+                  : micActive
+                  ? 'bg-emerald-500'
+                  : 'bg-zinc-500'
               }`}
             />
           </button>
@@ -640,7 +819,7 @@ export const CandidateAssessment: React.FC = () => {
 
       {/* ─── 2. MAIN SPLIT IDE WORKSPACE ─── */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
-        {/* ─── LEFT PANE: Description & Constraints (Continuous Flow) ─── */}
+        {/* ─── LEFT PANE: Description, Constraints & Live Proctor HUD ─── */}
         <div className="lg:col-span-5 border-r border-zinc-800/80 flex flex-col bg-zinc-950/60 overflow-hidden">
           <div className="h-9 px-4 border-b border-zinc-800/80 flex items-center justify-between bg-zinc-900/40">
             <span className="text-xs font-bold text-zinc-300">Problem Details</span>
@@ -661,7 +840,7 @@ export const CandidateAssessment: React.FC = () => {
               </p>
             </div>
 
-            {/* Constraints directly below */}
+            {/* Constraints */}
             <div className="pt-3 border-t border-zinc-800/80 space-y-1.5">
               <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block">
                 Constraints
@@ -673,15 +852,15 @@ export const CandidateAssessment: React.FC = () => {
               </ul>
             </div>
 
-            {/* ─── EXACT HUD LIVE VIDEO PROCTORING FEED (Rendered as in User's Screenshot) ─── */}
+            {/* ─── HUD LIVE VIDEO & AUDIO PROCTORING FEED ─── */}
             <div className="pt-3 border-t border-zinc-800/80">
-              <div className="p-3 rounded-xl bg-zinc-900/90 border border-zinc-800 shadow-md space-y-2">
+              <div className="p-3 rounded-xl bg-zinc-900/90 border border-zinc-800 shadow-md space-y-2.5">
                 {/* Header with Title & Turn Off / Expand */}
                 <div className="flex items-center justify-between text-xs font-bold">
                   <div className="flex items-center gap-1.5 text-cyan-400">
                     <Video className="w-4 h-4 text-cyan-400" />
                     <span className="uppercase tracking-wider text-[11px] font-extrabold text-white">
-                      LIVE VIDEO PROCTORING FEED
+                      AI DUAL VISION &amp; AUDIO PROCTOR
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -702,7 +881,7 @@ export const CandidateAssessment: React.FC = () => {
                 </div>
 
                 {/* Video Feed with High-Tech HUD Overlay */}
-                <div className="relative rounded-xl overflow-hidden bg-black border border-zinc-700/80 shadow-inner h-40 flex items-center justify-center">
+                <div className="relative rounded-xl overflow-hidden bg-black border border-zinc-700/80 shadow-inner h-38 flex items-center justify-center">
                   <video
                     ref={videoRef}
                     autoPlay
@@ -713,8 +892,8 @@ export const CandidateAssessment: React.FC = () => {
 
                   {/* Glowing HUD Framing Border */}
                   <div
-                    className={`absolute inset-2.5 rounded-lg border-2 pointer-events-none transition-all ${
-                      cameraStatus === 'multiple_faces'
+                    className={`absolute inset-2 rounded-lg border-2 pointer-events-none transition-all ${
+                      cameraStatus === 'multiple_faces' || speechDetectedNow
                         ? 'border-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.4)] animate-pulse'
                         : cameraStatus === 'face_absent'
                         ? 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)] border-dashed'
@@ -739,6 +918,8 @@ export const CandidateAssessment: React.FC = () => {
                             ? '⚠️ Breach Detected'
                             : cameraStatus === 'face_absent'
                             ? '⚠️ Face Not in View'
+                            : speechDetectedNow
+                            ? '🚨 Speech Detected'
                             : 'Candidate Verified'}
                         </span>
                       </div>
@@ -751,31 +932,75 @@ export const CandidateAssessment: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Acoustic Sound Spectrum & Mic HUD Meter */}
+                <div className="p-2 rounded-lg bg-zinc-950/90 border border-zinc-800 flex items-center justify-between gap-2 text-[11px] font-mono">
+                  <div className="flex items-center gap-2">
+                    {micActive ? (
+                      speechDetectedNow ? (
+                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                      ) : (
+                        <Mic className="w-3.5 h-3.5 text-emerald-400" />
+                      )
+                    ) : (
+                      <MicOff className="w-3.5 h-3.5 text-zinc-500" />
+                    )}
+                    <span className={`font-semibold ${speechDetectedNow ? 'text-rose-400 animate-pulse font-bold' : 'text-zinc-200'}`}>
+                      {micActive
+                        ? speechDetectedNow
+                          ? '🗣️ Speech Activity Flagged'
+                          : 'Audio Channel Live'
+                        : 'Mic Standby'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Multi-Bar Animated Sound Equalizer */}
+                    <div className="flex items-end gap-0.5 h-3.5 w-10 bg-zinc-900 rounded px-1 py-0.5 border border-zinc-800">
+                      <div className="w-1 bg-emerald-400 rounded-xs transition-all duration-75" style={{ height: `${Math.min(100, Math.max(15, liveAudioVolume * 0.9))}%` }} />
+                      <div className="w-1 bg-emerald-400 rounded-xs transition-all duration-75" style={{ height: `${Math.min(100, Math.max(20, liveAudioVolume * 1.3))}%` }} />
+                      <div className="w-1 bg-indigo-400 rounded-xs transition-all duration-75" style={{ height: `${Math.min(100, Math.max(10, liveAudioVolume * 0.8))}%` }} />
+                      <div className="w-1 bg-purple-400 rounded-xs transition-all duration-75" style={{ height: `${Math.min(100, Math.max(25, liveAudioVolume * 1.4))}%` }} />
+                    </div>
+                    <span className="text-zinc-400 font-bold text-[10px] w-12 text-right">
+                      {micActive ? `${liveAudioDb > -95 ? liveAudioDb : -48} dB` : 'Muted'}
+                    </span>
+                  </div>
+                </div>
+
                 {/* HUD Action Buttons */}
-                <div className="grid grid-cols-12 gap-2 pt-1">
+                <div className="grid grid-cols-12 gap-1.5 pt-0.5">
                   <button
                     onClick={handleManualScan}
                     disabled={isScanningFace}
-                    className="col-span-7 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-extrabold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                    className="col-span-4 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-[11px] font-extrabold py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 transition-all shadow-sm cursor-pointer"
                   >
                     {isScanningFace ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-950" />
+                      <Loader2 className="w-3 h-3 animate-spin text-zinc-950" />
                     ) : (
-                      <Scan className="w-3.5 h-3.5" />
+                      <Scan className="w-3 h-3" />
                     )}
-                    <span>Scan Face Live</span>
+                    <span>Re-Scan</span>
+                  </button>
+
+                  <button
+                    onClick={handleSimulateSpeechDetected}
+                    className="col-span-4 bg-purple-900/40 hover:bg-purple-900/70 text-purple-300 border border-purple-500/40 text-[10px] font-bold py-1.5 px-1 rounded-lg text-center transition-all cursor-pointer truncate"
+                    title="Simulate Voice / Speech detection breach"
+                  >
+                    🗣️ Test Speech
                   </button>
 
                   <button
                     onClick={handleSimulateMultipleFaces}
-                    className="col-span-5 bg-zinc-800 hover:bg-zinc-750 text-amber-400 border border-zinc-700 text-[11px] font-bold py-2 px-2 rounded-lg text-center transition-all cursor-pointer truncate"
+                    className="col-span-4 bg-zinc-800 hover:bg-zinc-750 text-amber-400 border border-zinc-700 text-[10px] font-bold py-1.5 px-1 rounded-lg text-center transition-all cursor-pointer truncate"
+                    title="Simulate 2 persons in frame"
                   >
-                    Demo Violation Alert
+                    👥 2 Faces
                   </button>
                 </div>
 
                 <p className="text-[10px] text-zinc-400 text-center">
-                  Live AI continuously verifies candidate presence &amp; room integrity.
+                  Live MediaPipe CV &amp; WebAudio VAD verify candidate environment.
                 </p>
               </div>
             </div>
@@ -876,7 +1101,7 @@ export const CandidateAssessment: React.FC = () => {
         </div>
       </div>
 
-      {/* ─── 3. PROCTOR CAMERA INSPECTION & VIOLATION DIAGNOSTIC MODAL ─── */}
+      {/* ─── 3. PROCTOR CAMERA & AUDIO INSPECTION DIAGNOSTIC MODAL ─── */}
       {showProctorModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
           <motion.div
@@ -889,24 +1114,26 @@ export const CandidateAssessment: React.FC = () => {
               <div className="flex items-center gap-2.5">
                 <div
                   className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${
-                    cameraStatus === 'multiple_faces'
+                    cameraStatus === 'multiple_faces' || speechDetectedNow
                       ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                       : cameraStatus === 'face_absent'
                       ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                       : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                   }`}
                 >
-                  {cameraStatus === 'multiple_faces' ? (
+                  {speechDetectedNow ? (
+                    <Mic className="w-5 h-5 animate-pulse" />
+                  ) : cameraStatus === 'multiple_faces' ? (
                     <Users className="w-5 h-5" />
                   ) : cameraStatus === 'face_absent' ? (
                     <UserX className="w-5 h-5" />
                   ) : (
-                    <Camera className="w-5 h-5" />
+                    <ShieldCheck className="w-5 h-5" />
                   )}
                 </div>
                 <div>
-                  <h3 className="font-bold text-white text-base">Camera &amp; AI Proctor Diagnostic</h3>
-                  <p className="text-xs text-zinc-400">MediaPipe BlazeFace Computer Vision Analysis</p>
+                  <h3 className="font-bold text-white text-base">Dual Vision &amp; Audio Proctor Diagnostics</h3>
+                  <p className="text-xs text-zinc-400">MediaPipe BlazeFace + WebAudio Voice Activity Detection (VAD)</p>
                 </div>
               </div>
               <button
@@ -935,7 +1162,7 @@ export const CandidateAssessment: React.FC = () => {
 
                 <div
                   className={`absolute inset-4 border-2 rounded-xl pointer-events-none transition-colors ${
-                    cameraStatus === 'multiple_faces'
+                    cameraStatus === 'multiple_faces' || speechDetectedNow
                       ? 'border-rose-500 animate-pulse'
                       : cameraStatus === 'face_absent'
                       ? 'border-amber-500/80 border-dashed'
@@ -945,14 +1172,16 @@ export const CandidateAssessment: React.FC = () => {
                   <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/80 text-[10px] font-mono font-bold text-white flex items-center gap-1.5">
                     <span
                       className={`w-2 h-2 rounded-full ${
-                        cameraStatus === 'multiple_faces'
-                          ? 'bg-rose-500'
+                        cameraStatus === 'multiple_faces' || speechDetectedNow
+                          ? 'bg-rose-500 animate-ping'
                           : cameraStatus === 'face_absent'
                           ? 'bg-amber-500'
                           : 'bg-emerald-500 animate-pulse'
                       }`}
                     />
-                    {cameraStatus === 'multiple_faces'
+                    {speechDetectedNow
+                      ? `🚨 Voice Activity Flagged`
+                      : cameraStatus === 'multiple_faces'
                       ? `🚨 2+ Faces in Frame`
                       : cameraStatus === 'face_absent'
                       ? `⚠️ No Face Detected`
@@ -964,7 +1193,7 @@ export const CandidateAssessment: React.FC = () => {
               <div className="md:col-span-6 space-y-3 flex flex-col justify-between">
                 <div
                   className={`p-4 rounded-xl border text-xs space-y-2 ${
-                    cameraStatus === 'multiple_faces'
+                    speechDetectedNow || cameraStatus === 'multiple_faces'
                       ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
                       : cameraStatus === 'face_absent'
                       ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
@@ -972,37 +1201,42 @@ export const CandidateAssessment: React.FC = () => {
                   }`}
                 >
                   <div className="font-bold text-sm flex items-center gap-1.5 text-white">
-                    {cameraStatus === 'multiple_faces' && '🚨 Critical Violation: Multiple People Detected'}
-                    {cameraStatus === 'face_absent' && '⚠️ Violation: Candidate Face Absent'}
-                    {cameraStatus === 'face_locked' && '✅ Authorized Candidate Verified'}
+                    {speechDetectedNow && '🗣️ Audio Anomaly: Spoken Voice Detected'}
+                    {!speechDetectedNow && cameraStatus === 'multiple_faces' && '🚨 Critical Violation: Multiple People Detected'}
+                    {!speechDetectedNow && cameraStatus === 'face_absent' && '⚠️ Violation: Candidate Face Absent'}
+                    {!speechDetectedNow && cameraStatus === 'face_locked' && '✅ Authorized Candidate Verified'}
                   </div>
 
                   <p className="leading-relaxed text-zinc-300 text-xs">
-                    {cameraStatus === 'multiple_faces' &&
+                    {speechDetectedNow &&
+                      'The acoustic FFT engine flagged speech-band frequencies consistent with human vocal conversation or whisper coaching.'}
+                    {!speechDetectedNow && cameraStatus === 'multiple_faces' &&
                       'The neural network detected more than 1 human face inside the camera view. Examination rules mandate a single isolated candidate in the testing room.'}
-                    {cameraStatus === 'face_absent' &&
+                    {!speechDetectedNow && cameraStatus === 'face_absent' &&
                       'No valid human face could be identified in the camera stream. Please align your face squarely in front of the webcam with clear front lighting.'}
-                    {cameraStatus === 'face_locked' &&
-                      '1 verified candidate detected. Face match confidence is optimal, and room integrity is normal.'}
+                    {!speechDetectedNow && cameraStatus === 'face_locked' &&
+                      '1 verified candidate detected. Face match confidence is optimal, and acoustic integrity is clean.'}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                  <div className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800">
+                  <div className="p-2 rounded-lg bg-zinc-950 border border-zinc-800">
+                    <span className="text-zinc-500 text-[10px] block font-sans">Acoustic Signal:</span>
+                    <strong className="text-emerald-400 text-xs">{liveAudioDb > -95 ? `${liveAudioDb} dB` : '-48 dB'}</strong>
+                  </div>
+                  <div className="p-2 rounded-lg bg-zinc-950 border border-zinc-800">
+                    <span className="text-zinc-500 text-[10px] block font-sans">Voice Band Energy:</span>
+                    <strong className={`text-xs ${speechDetectedNow ? 'text-rose-400 font-bold' : 'text-zinc-300'}`}>
+                      {speechDetectedNow ? 'FLAGGED' : 'Normal'}
+                    </strong>
+                  </div>
+                  <div className="p-2 rounded-lg bg-zinc-950 border border-zinc-800">
                     <span className="text-zinc-500 text-[10px] block font-sans">Detected Faces:</span>
-                    <strong className="text-white text-sm">{detectedFacesCount} Person(s)</strong>
+                    <strong className="text-white text-xs">{detectedFacesCount} Person(s)</strong>
                   </div>
-                  <div className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800">
-                    <span className="text-zinc-500 text-[10px] block font-sans">Confidence:</span>
-                    <strong className="text-emerald-400 text-sm">{faceConfidence}%</strong>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800">
-                    <span className="text-zinc-500 text-[10px] block font-sans">Resolution:</span>
-                    <span className="text-zinc-300">480x360 @ 30 FPS</span>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-zinc-950 border border-zinc-800">
-                    <span className="text-zinc-500 text-[10px] block font-sans">Neural Engine:</span>
-                    <span className="text-indigo-300 font-bold">BlazeFace GPU</span>
+                  <div className="p-2 rounded-lg bg-zinc-950 border border-zinc-800">
+                    <span className="text-zinc-500 text-[10px] block font-sans">Face Match:</span>
+                    <strong className="text-emerald-400 text-xs">{faceConfidence}%</strong>
                   </div>
                 </div>
               </div>
@@ -1015,33 +1249,31 @@ export const CandidateAssessment: React.FC = () => {
               </span>
               <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={handleManualScan}
-                  disabled={isScanningFace}
-                  className="btn-secondary text-xs font-bold px-3 py-1.5 flex items-center gap-1.5 cursor-pointer"
+                  onClick={handleSimulateSpeechDetected}
+                  className="bg-purple-900/40 hover:bg-purple-900/60 text-purple-300 border border-purple-500/40 text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
                 >
-                  {isScanningFace ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Scan className="w-3.5 h-3.5" />}
-                  <span>Re-Scan Live Face</span>
+                  🗣️ Simulate Voice / Speech Detection
+                </button>
+
+                <button
+                  onClick={handleSimulateNoiseSpike}
+                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
+                >
+                  📢 Simulate Noise Spike
                 </button>
 
                 <button
                   onClick={handleSimulateMultipleFaces}
                   className="bg-rose-900/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/40 text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
                 >
-                  Simulate 2 Faces (Demo Violation)
-                </button>
-
-                <button
-                  onClick={handleSimulateFaceAbsent}
-                  className="bg-amber-900/40 hover:bg-amber-900/60 text-amber-300 border border-amber-500/40 text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
-                >
-                  Simulate Absence (Demo Violation)
+                  👥 Simulate 2 Faces
                 </button>
 
                 <button
                   onClick={handleResetToNormal}
                   className="bg-emerald-900/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/40 text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
                 >
-                  Reset to Verified Normal
+                  ✅ Reset to Verified
                 </button>
               </div>
             </div>

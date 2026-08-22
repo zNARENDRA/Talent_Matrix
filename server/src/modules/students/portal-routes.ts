@@ -127,12 +127,12 @@ studentPortalRouter.post('/offers/:id/respond', async (req: Request, res: Respon
     }
 
     const offer = await prisma.offer.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       include: {
         student: true,
         drive: { include: { company: true } },
       },
-    });
+    }) as any;
 
     if (!offer) {
       return res.status(404).json({ error: 'Offer not found' });
@@ -190,6 +190,48 @@ studentPortalRouter.post('/offers/:id/respond', async (req: Request, res: Respon
     });
 
     res.json({ success: true, message: `Offer successfully marked as ${action}.` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/student-portal/available-drives - All active recruitment drives for direct application
+studentPortalRouter.get('/available-drives', async (req: Request, res: Response) => {
+  try {
+    const studentUser = req.query.studentId as string;
+    const drives = await prisma.recruitmentDrive.findMany({
+      include: {
+        company: true,
+      },
+      orderBy: { packageLpa: 'desc' },
+    });
+
+    let appliedDriveIds: string[] = [];
+    if (studentUser) {
+      const student = await prisma.student.findFirst({
+        where: {
+          OR: [{ studentId: studentUser }, { email: studentUser }, { id: studentUser }],
+        },
+        include: { applications: true },
+      });
+      if (student) {
+        appliedDriveIds = student.applications.map((a) => a.driveId);
+      }
+    }
+
+    const enrichedDrives = drives.map((d: any) => ({
+      id: d.id,
+      companyName: d.company.name,
+      companyId: d.company.id,
+      role: d.role,
+      packageLpa: d.packageLpa,
+      offerTier: d.offerTier,
+      positions: d.positions || 10,
+      status: d.status,
+      alreadyApplied: appliedDriveIds.includes(d.id),
+    }));
+
+    res.json({ drives: enrichedDrives });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
